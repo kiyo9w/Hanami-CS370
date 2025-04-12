@@ -1,0 +1,12 @@
+// Simple math and variable test
+garden MathTest
+
+grow calculate() -> int {
+    int a = 10;
+    int b = 5 * (a - 3); // b should be 35
+    int c = (a + b) % 8; // c should be 5
+
+    bloom << "Result: " << c << "\n"; 
+
+    blossom c;
+} 

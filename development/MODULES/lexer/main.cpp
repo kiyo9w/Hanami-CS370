@@ -1,7 +1,12 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include "lexer.h"
+#include <fstream>  // For file streams
+#include <sstream>  // For reading file content
+#include <iomanip>  // For std::quoted
+#include "../common/token.h"
+#include "lexer.h" // Include Lexer class definition
+#include <map>
 
 // Print token information in a readable format
 void printToken(const Token& token) {
@@ -36,161 +41,145 @@ void printToken(const Token& token) {
     std::cout << " at line " << token.line << ", column " << token.column << std::endl;
 }
 
-// Test the lexer with incremental chunks to isolate errors
-bool testLexerChunk(const std::string& description, const std::string& source) {
-    std::cout << "\n=== TESTING: " << description << " ===\n";
-    std::cout << "Source: \"" << source << "\"\n";
-    
-    try {
-        Lexer lexer(source);
-        
-        int tokenCount = 0;
-        const int MAX_TOKENS = 1000; // Limit to prevent infinite loops
-        Token token;
-        
-        // Store the last position to detect if we're stuck
-        int lastLine = -1;
-        int lastColumn = -1;
-        
-        do {
-            token = lexer.scanToken();
-            printToken(token);
-            tokenCount++;
-            
-            // Check if the lexer is stuck at the same position
-            if (token.line == lastLine && token.column == lastColumn && 
-                token.type != TokenType::EOF_TOKEN) {
-                std::cerr << "ERROR: Lexer stuck at line " << token.line << ", column " 
-                          << token.column << " (possible infinite loop)\n";
-                return false;
-            }
-            
-            lastLine = token.line;
-            lastColumn = token.column;
-            
-            if (tokenCount >= MAX_TOKENS) {
-                std::cerr << "ERROR: Too many tokens generated (possible infinite loop)\n";
-                return false;
-            }
-            
-        } while (token.type != TokenType::EOF_TOKEN);
-        
-        std::cout << "Successfully processed " << tokenCount << " tokens.\n";
-        return true;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return false;
+// Function to convert TokenType enum to string (reverse of parser's map)
+// Keep this in sync with common/token.h
+std::string tokenTypeToString(TokenType type) {
+    // This map should contain all entries from the TokenType enum
+     static const std::map<TokenType, std::string> typeToStringMap = {
+        {TokenType::GARDEN, "GARDEN"}, {TokenType::SPECIES, "SPECIES"}, {TokenType::OPEN, "OPEN"}, 
+        {TokenType::HIDDEN, "HIDDEN"}, {TokenType::GUARDED, "GUARDED"}, {TokenType::GROW, "GROW"}, 
+        {TokenType::BLOSSOM, "BLOSSOM"}, {TokenType::STYLE, "STYLE"}, {TokenType::BLOOM, "BLOOM"}, 
+        {TokenType::WATER, "WATER"}, {TokenType::BRANCH, "BRANCH"}, {TokenType::ELSE, "ELSE"}, 
+        {TokenType::WHILE, "WHILE"}, {TokenType::FOR, "FOR"}, {TokenType::IDENTIFIER, "IDENTIFIER"},
+        {TokenType::NUMBER, "NUMBER"}, {TokenType::STRING, "STRING"}, {TokenType::TRUE, "TRUE"}, 
+        {TokenType::FALSE, "FALSE"}, {TokenType::PLUS, "PLUS"}, {TokenType::MINUS, "MINUS"}, 
+        {TokenType::STAR, "STAR"}, {TokenType::SLASH, "SLASH"}, {TokenType::ASSIGN, "ASSIGN"}, 
+        {TokenType::EQUAL, "EQUAL"}, {TokenType::NOT_EQUAL, "NOT_EQUAL"}, {TokenType::LESS, "LESS"}, 
+        {TokenType::LESS_EQUAL, "LESS_EQUAL"}, {TokenType::GREATER, "GREATER"}, {TokenType::GREATER_EQUAL, "GREATER_EQUAL"},
+        {TokenType::AND, "AND"}, {TokenType::OR, "OR"}, {TokenType::NOT, "NOT"}, 
+        {TokenType::MODULO, "MODULO"}, {TokenType::STREAM_OUT, "STREAM_OUT"}, {TokenType::STREAM_IN, "STREAM_IN"}, 
+        {TokenType::ARROW, "ARROW"}, {TokenType::LEFT_PAREN, "LEFT_PAREN"}, {TokenType::RIGHT_PAREN, "RIGHT_PAREN"}, 
+        {TokenType::LEFT_BRACE, "LEFT_BRACE"}, {TokenType::RIGHT_BRACE, "RIGHT_BRACE"}, {TokenType::LEFT_BRACKET, "LEFT_BRACKET"}, 
+        {TokenType::RIGHT_BRACKET, "RIGHT_BRACKET"}, {TokenType::COMMA, "COMMA"}, {TokenType::SEMICOLON, "SEMICOLON"},
+        {TokenType::DOT, "DOT"}, {TokenType::COLON, "COLON"}, {TokenType::COMMENT, "COMMENT"},
+        {TokenType::EOF_TOKEN, "EOF_TOKEN"}, {TokenType::ERROR, "ERROR"}, {TokenType::STYLE_INCLUDE, "STYLE_INCLUDE"}, 
+        {TokenType::SCOPE_RESOLUTION, "SCOPE_RESOLUTION"}
+    };
+    auto it = typeToStringMap.find(type);
+    if (it != typeToStringMap.end()) {
+        return it->second;
+    } else {
+        return "UNKNOWN";
     }
 }
 
-int main() {
-    // Test each part incrementally to isolate problems
-    bool allPassed = true;
-    
-    // Test 1: Simple style includes
-    allPassed &= testLexerChunk("Style includes", 
-        "style <iostream>\nstyle <string>\n");
-    
-    // Test 2: Garden declaration
-    allPassed &= testLexerChunk("Garden declaration", 
-        "garden SimpleGarden\n");
-    
-    // Test 3: Start of species declaration
-    allPassed &= testLexerChunk("Species declaration start", 
-        "species Rose {\n");
-    
-    // Test 4: Open section
-    allPassed &= testLexerChunk("Open section", 
-        "open:\n    grow sayHello() -> void {\n");
-    
-    // Test 5: Function body
-    allPassed &= testLexerChunk("Function body", 
-        "        bloom << \"Hello from Hanami Rose!\\n\";\n"
-        "        blossom;\n    }\n");
-    
-    // Test 6: Hidden section
-    allPassed &= testLexerChunk("Hidden section", 
-        "hidden:\n    int secretNumber = 42;\n");
-    
-    // Test 7: Guarded section
-    allPassed &= testLexerChunk("Guarded section", 
-        "guarded:\n    bool isFriendly = true;\n};");
-    
-    // Test 8: Main function start
-    allPassed &= testLexerChunk("Main function start", 
-        "grow mainGarden() -> int {\n"
-        "    std::string userName;\n\n"
-        "    bloom << \"What's your name? \";\n"
-        "    water >> userName;\n");
-    
-    // Test 9: Object creation and method call
-    allPassed &= testLexerChunk("Object creation", 
-        "    Rose g;\n"
-        "    g.sayHello();\n");
-    
-    // Test 10: Branch statements
-    allPassed &= testLexerChunk("Branch statements", 
-        "    branch (userName == \"Rose\") {\n"
-        "        bloom << \"You have a lovely name!\\n\";\n"
-        "    }\n"
-        "    else branch (userName == \"Lily\") {\n"
-        "        bloom << \"Another beautiful flower name!\\n\";\n"
-        "    }\n"
-        "    else {\n"
-        "        bloom << \"Nice to meet you, \" << userName << \"!\\n\";\n"
-        "    }\n");
-    
-    // Test 11: Function end
-    allPassed &= testLexerChunk("Function end", 
-        "    blossom 0;\n}");
-    
-    // Test 12: Full program (if the individual parts succeeded)
-    if (allPassed) {
-        const std::string fullProgram = 
-            "style <iostream>\n"
-            "style <string>\n\n"
-            "garden SimpleGarden\n\n"
-            "species Rose {\n"
-            "open:\n"
-            "    grow sayHello() -> void {\n"
-            "        bloom << \"Hello from Hanami Rose!\\n\";\n"
-            "        blossom;\n"
-            "    }\n\n"
-            "hidden:\n"
-            "    int secretNumber = 42;\n\n"
-            "guarded:\n"
-            "    bool isFriendly = true;\n"
-            "};\n\n"
-            "grow mainGarden() -> int {\n"
-            "    std::string userName;\n\n"
-            "    bloom << \"What's your name? \";\n"
-            "    water >> userName;\n\n"
-            "    Rose g;\n"
-            "    g.sayHello();\n\n"
-            "    branch (userName == \"Rose\") {\n"
-            "        bloom << \"You have a lovely name!\\n\";\n"
-            "    }\n"
-            "    else branch (userName == \"Lily\") {\n"
-            "        bloom << \"Another beautiful flower name!\\n\";\n"
-            "    }\n"
-            "    else {\n"
-            "        bloom << \"Nice to meet you, \" << userName << \"!\\n\";\n"
-            "    }\n\n"
-            "    blossom 0;\n"
-            "}";
+int main(int argc, char* argv[]) { 
+    std::string inputFilename = "input/input.hanami"; // Default input source file
+    std::string outputFilename = "output/output.tokens"; // Default output token file
+
+    if (argc > 1) {
+        inputFilename = std::string(argv[1]);
+    }
+    // Optional: Allow specifying output file via command line
+    // if (argc > 2) {
+    //     outputFilename = std::string(argv[2]);
+    // }
+
+    std::cout << "Lexer Module" << std::endl;
+    std::cout << "Reading source from: " << inputFilename << std::endl;
+
+    std::ifstream inFile(inputFilename);
+    if (!inFile) {
+        std::cerr << "Error: Could not open input file: " << inputFilename << std::endl;
+        return 1;
+    }
+
+    std::stringstream buffer;
+    buffer << inFile.rdbuf();
+    std::string sourceCode = buffer.str();
+    inFile.close();
+
+    if (sourceCode.empty()) {
+        std::cout << "Input file is empty. Nothing to tokenize." << std::endl;
+        // Create an empty output file or one with just EOF?
+         std::ofstream outFile(outputFilename);
+         if (!outFile) {
+              std::cerr << "Error: Could not open output file: " << outputFilename << std::endl;
+              return 1;
+         }
+         // Write just EOF for consistency
+         outFile << tokenTypeToString(TokenType::EOF_TOKEN) << " 1 1" << std::endl; 
+         outFile.close();
+         std::cout << "Empty token file written to: " << outputFilename << std::endl;
+        return 0;
+    }
+
+    std::cout << "Tokenizing source code..." << std::endl;
+    Lexer lexer(sourceCode);
+    std::vector<Token> tokens;
+    bool lexSuccessful = true;
+
+    try {
+        tokens = lexer.scanTokens(); // Get all tokens
+    } catch (const std::exception& e) {
+        std::cerr << "An unexpected error occurred during lexing: " << e.what() << std::endl;
+        lexSuccessful = false;
+        return 1;
+    }
+
+    // Check for errors reported during lexing (ERROR tokens)
+    for(const auto& token : tokens) {
+        if (token.type == TokenType::ERROR) {
+            std::cerr << "Lexing error encountered: " << token.lexeme 
+                      << " at line " << token.line << ", column " << token.column << std::endl;
+            lexSuccessful = false;
+            // Decide whether to stop or continue after first error
+             // return 1; // Stop on first error
+        }
+    }
+
+    if (!lexSuccessful) {
+        std::cerr << "Lexing failed due to errors. Token file not generated." << std::endl;
+        return 1;
+    }
+
+    std::cout << "Lexing completed successfully." << std::endl;
+    std::cout << "Writing tokens to: " << outputFilename << std::endl;
+
+    std::ofstream outFile(outputFilename);
+    if (!outFile) {
+        std::cerr << "Error: Could not open output file: " << outputFilename << std::endl;
+        return 1;
+    }
+
+    // Write tokens to file in the specified format
+    for (const auto& token : tokens) {
+        std::string typeStr = tokenTypeToString(token.type);
+        outFile << typeStr;
         
-        std::cout << "\n=== TESTING FULL PROGRAM ===\n";
-        testLexerChunk("Full Hanami Program", fullProgram);
+        // Add lexeme if applicable, handling quotes for strings/paths
+        if (token.type == TokenType::IDENTIFIER || token.type == TokenType::NUMBER || 
+            token.type == TokenType::STRING || token.type == TokenType::STYLE_INCLUDE ||
+            token.type == TokenType::ERROR) // Include lexeme for ERROR tokens too
+        {
+             outFile << " ";
+             if (token.type == TokenType::STRING || token.type == TokenType::STYLE_INCLUDE) {
+                 outFile << std::quoted(token.lexeme); // Add quotes for strings/paths
+             } else {
+                 outFile << token.lexeme;
+             }
+        }
+        
+        outFile << " " << token.line << " " << token.column << std::endl;
+
+        // Stop writing after EOF_TOKEN
+        if (token.type == TokenType::EOF_TOKEN) {
+            break; 
+        }
     }
-    
-    // Final results
-    if (allPassed) {
-        std::cout << "\n=== ALL TESTS PASSED ===\n";
-    } else {
-        std::cout << "\n=== SOME TESTS FAILED ===\n";
-        std::cout << "Check the output above to see where the lexer is failing.\n";
-    }
-    
-    return allPassed ? 0 : 1;
+
+    outFile.close();
+    std::cout << "Tokens successfully written to " << outputFilename << std::endl;
+
+    return 0;
 }
