@@ -1,0 +1,239 @@
+{
+    "node_type": "ProgramNode",
+    "statements": [
+        {
+            "node_type": "StyleIncludeStmt",
+            "path": "\"iostream\""
+        },
+        {
+            "node_type": "StyleIncludeStmt",
+            "path": "\"string\""
+        },
+        {
+            "name": "SimpleGarden",
+            "node_type": "GardenDeclStmt"
+        },
+        {
+            "name": "Rose",
+            "node_type": "SpeciesDeclStmt",
+            "sections": [
+                {
+                    "block": {
+                        "node_type": "BlockStmt",
+                        "statements": [
+                            {
+                                "body": {
+                                    "node_type": "BlockStmt",
+                                    "statements": [
+                                        {
+                                            "direction": 34,
+                                            "expressions": [
+                                                {
+                                                    "node_type": "StringLiteralExpr",
+                                                    "value": "Hello from Hanami Rose!\\n"
+                                                }
+                                            ],
+                                            "ioType": 8,
+                                            "node_type": "IOStmt"
+                                        },
+                                        {
+                                            "node_type": "ReturnStmt",
+                                            "returnValue": null
+                                        }
+                                    ]
+                                },
+                                "name": "sayHello",
+                                "node_type": "FunctionDefStmt",
+                                "parameters": [],
+                                "returnType": "void"
+                            }
+                        ]
+                    },
+                    "node_type": "VisibilityBlockStmt",
+                    "visibility": 2
+                },
+                {
+                    "block": {
+                        "node_type": "BlockStmt",
+                        "statements": [
+                            {
+                                "initializer": {
+                                    "node_type": "NumberLiteralExpr",
+                                    "value": ""
+                                },
+                                "node_type": "VariableDeclStmt",
+                                "typeName": "int",
+                                "varName": "secretNumber"
+                            }
+                        ]
+                    },
+                    "node_type": "VisibilityBlockStmt",
+                    "visibility": 3
+                },
+                {
+                    "block": {
+                        "node_type": "BlockStmt",
+                        "statements": [
+                            {
+                                "initializer": {
+                                    "node_type": "BooleanLiteralExpr",
+                                    "value": true
+                                },
+                                "node_type": "VariableDeclStmt",
+                                "typeName": "bool",
+                                "varName": "isFriendly"
+                            }
+                        ]
+                    },
+                    "node_type": "VisibilityBlockStmt",
+                    "visibility": 4
+                }
+            ]
+        },
+        {
+            "direction": 34,
+            "expressions": [
+                {
+                    "node_type": "StringLiteralExpr",
+                    "value": "What's your name? "
+                }
+            ],
+            "ioType": 8,
+            "node_type": "IOStmt"
+        },
+        {
+            "direction": 35,
+            "expressions": [
+                {
+                    "name": "userName",
+                    "node_type": "IdentifierExpr"
+                }
+            ],
+            "ioType": 9,
+            "node_type": "IOStmt"
+        },
+        {
+            "initializer": null,
+            "node_type": "VariableDeclStmt",
+            "typeName": "Rose",
+            "varName": "g"
+        },
+        {
+            "expression": {
+                "arguments": [],
+                "callee": {
+                    "member": {
+                        "name": "sayHello",
+                        "node_type": "IdentifierExpr"
+                    },
+                    "node_type": "MemberAccessExpr",
+                    "object": {
+                        "name": "g",
+                        "node_type": "IdentifierExpr"
+                    }
+                },
+                "node_type": "FunctionCallExpr"
+            },
+            "node_type": "ExpressionStmt"
+        },
+        {
+            "branches": [
+                {
+                    "body": {
+                        "node_type": "BlockStmt",
+                        "statements": [
+                            {
+                                "direction": 34,
+                                "expressions": [
+                                    {
+                                        "node_type": "StringLiteralExpr",
+                                        "value": "You have a lovely name!\\n"
+                                    }
+                                ],
+                                "ioType": 8,
+                                "node_type": "IOStmt"
+                            }
+                        ]
+                    },
+                    "condition": {
+                        "left": {
+                            "name": "userName",
+                            "node_type": "IdentifierExpr"
+                        },
+                        "node_type": "BinaryOpExpr",
+                        "operator": 24,
+                        "right": {
+                            "node_type": "StringLiteralExpr",
+                            "value": "Rose"
+                        }
+                    }
+                },
+                {
+                    "body": {
+                        "node_type": "BlockStmt",
+                        "statements": [
+                            {
+                                "direction": 34,
+                                "expressions": [
+                                    {
+                                        "node_type": "StringLiteralExpr",
+                                        "value": "Another beautiful flower name!\\n"
+                                    }
+                                ],
+                                "ioType": 8,
+                                "node_type": "IOStmt"
+                            }
+                        ]
+                    },
+                    "condition": {
+                        "left": {
+                            "name": "userName",
+                            "node_type": "IdentifierExpr"
+                        },
+                        "node_type": "BinaryOpExpr",
+                        "operator": 24,
+                        "right": {
+                            "node_type": "StringLiteralExpr",
+                            "value": "Lily"
+                        }
+                    }
+                },
+                {
+                    "body": {
+                        "node_type": "BlockStmt",
+                        "statements": [
+                            {
+                                "direction": 34,
+                                "expressions": [
+                                    {
+                                        "node_type": "StringLiteralExpr",
+                                        "value": "Nice to meet you, "
+                                    },
+                                    {
+                                        "name": "userName",
+                                        "node_type": "IdentifierExpr"
+                                    },
+                                    {
+                                        "node_type": "StringLiteralExpr",
+                                        "value": "!\\n"
+                                    }
+                                ],
+                                "ioType": 8,
+                                "node_type": "IOStmt"
+                            }
+                        ]
+                    },
+                    "condition": null
+                }
+            ],
+            "node_type": "BranchStmt"
+        },
+        {
+            "node_type": "ReturnStmt",
+            "returnValue": {
+                "node_type": "NumberLiteralExpr",
+                "value": ""
+            }
+        }
+    ]
+}
