@@ -3,7 +3,7 @@ CXX = g++
 CXXFLAGS = -Wall -std=c++11
 
 # Tên file chính
-TARGET = lexer_test
+TARGET = 1
 
 # File objects
 OBJS = main.o lexer.o

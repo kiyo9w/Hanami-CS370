@@ -1,148 +1,196 @@
-#include "lexer.h"
 #include <iostream>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <string>
-#include <iomanip>
+#include "lexer.h"
 
-// Helper function to convert TokenType to string for display
-std::string tokenTypeToString(TokenType type) {
-    switch (type) {
-        // Keywords
-        case TokenType::IF: return "IF";
-        case TokenType::ELSE: return "ELSE";
-        case TokenType::WHILE: return "WHILE";
-        case TokenType::FOR: return "FOR";
-        case TokenType::RETURN: return "RETURN";
-        case TokenType::FUNCTION: return "FUNCTION";
-        
-        // Literals
-        case TokenType::IDENTIFIER: return "IDENTIFIER";
-        case TokenType::NUMBER: return "NUMBER";
-        case TokenType::STRING: return "STRING";
-        case TokenType::TRUE: return "TRUE";
-        case TokenType::FALSE: return "FALSE";
-        
-        // Operators
-        case TokenType::PLUS: return "PLUS";
-        case TokenType::MINUS: return "MINUS";
-        case TokenType::MULTIPLY: return "MULTIPLY";
-        case TokenType::DIVIDE: return "DIVIDE";
-        case TokenType::ASSIGN: return "ASSIGN";
-        case TokenType::EQUAL: return "EQUAL";
-        case TokenType::NOT_EQUAL: return "NOT_EQUAL";
-        case TokenType::LESS: return "LESS";
-        case TokenType::GREATER: return "GREATER";
-        case TokenType::AND: return "AND";
-        case TokenType::OR: return "OR";
-        case TokenType::NOT: return "NOT";
-        
-        // Punctuation
-        case TokenType::LEFT_PAREN: return "LEFT_PAREN";
-        case TokenType::RIGHT_PAREN: return "RIGHT_PAREN";
-        case TokenType::LEFT_BRACE: return "LEFT_BRACE";
-        case TokenType::RIGHT_BRACE: return "RIGHT_BRACE";
-        case TokenType::LEFT_BRACKET: return "LEFT_BRACKET";
-        case TokenType::RIGHT_BRACKET: return "RIGHT_BRACKET";
-        case TokenType::COMMA: return "COMMA";
-        case TokenType::SEMICOLON: return "SEMICOLON";
-        case TokenType::DOT: return "DOT";
-        
-        // Special
-        case TokenType::COMMENT: return "COMMENT";
-        case TokenType::EOF_TOKEN: return "EOF_TOKEN";
-        case TokenType::ERROR: return "ERROR";
-        
-        default: return "UNKNOWN";
+// Print token information in a readable format
+void printToken(const Token& token) {
+    // Map of token types to string representations
+    static const char* tokenTypeStrings[] = {
+        "GARDEN", "SPECIES", "OPEN", "HIDDEN", "GUARDED", 
+        "GROW", "BLOSSOM", "STYLE", "BLOOM", "WATER",
+        "BRANCH", "ELSE", "WHILE", "FOR", "IDENTIFIER",
+        "NUMBER", "STRING", "TRUE", "FALSE", "PLUS",
+        "MINUS", "STAR", "SLASH", "ASSIGN", "EQUAL",
+        "NOT_EQUAL", "LESS", "LESS_EQUAL", "GREATER", "GREATER_EQUAL",
+        "AND", "OR", "NOT", "MODULO", "STREAM_OUT",
+        "STREAM_IN", "ARROW", "LEFT_PAREN", "RIGHT_PAREN", "LEFT_BRACE",
+        "RIGHT_BRACE", "LEFT_BRACKET", "RIGHT_BRACKET", "COMMA", "SEMICOLON",
+        "DOT", "COLON", "COMMENT", "EOF_TOKEN", "ERROR", "STYLE_INCLUDE", "SCOPE_RESOLUTION"
+    };
+    
+    // Get index based on token type (safely)
+    int index = static_cast<int>(token.type);
+    const char* typeStr = (index >= 0 && index < sizeof(tokenTypeStrings)/sizeof(tokenTypeStrings[0])) 
+                         ? tokenTypeStrings[index] : "UNKNOWN";
+    
+    std::cout << "Token: " << typeStr;
+    
+    // Print lexeme for identifiers, numbers, and strings
+    if (token.type == TokenType::IDENTIFIER || 
+        token.type == TokenType::NUMBER || 
+        token.type == TokenType::STRING) {
+        std::cout << " (\"" << token.lexeme << "\")";
     }
+    
+    std::cout << " at line " << token.line << ", column " << token.column << std::endl;
 }
 
-// Function to run lexer on provided source and print all tokens
-void testLexer(const std::string& source, const std::string& testName) {
-    std::cout << "\n=== " << testName << " ===\n";
-    std::cout << "SOURCE:\n" << source << "\n\n";
+// Test the lexer with incremental chunks to isolate errors
+bool testLexerChunk(const std::string& description, const std::string& source) {
+    std::cout << "\n=== TESTING: " << description << " ===\n";
+    std::cout << "Source: \"" << source << "\"\n";
     
-    Lexer lexer(source);
-    
-    std::cout << std::left << std::setw(15) << "TYPE" 
-              << std::setw(20) << "LEXEME" 
-              << std::setw(8) << "LINE" 
-              << std::setw(8) << "COLUMN" << "\n";
-    std::cout << std::string(50, '-') << "\n";
-    
-    while (true) {
-        Token token = lexer.scanToken();
-        std::cout << std::left << std::setw(15) << tokenTypeToString(token.type) 
-                  << std::setw(20) << token.lexeme 
-                  << std::setw(8) << token.line 
-                  << std::setw(8) << token.column << "\n";
-                  
-        if (token.type == TokenType::EOF_TOKEN) {
-            break;
-        }
+    try {
+        Lexer lexer(source);
+        
+        int tokenCount = 0;
+        const int MAX_TOKENS = 1000; // Limit to prevent infinite loops
+        Token token;
+        
+        // Store the last position to detect if we're stuck
+        int lastLine = -1;
+        int lastColumn = -1;
+        
+        do {
+            token = lexer.scanToken();
+            printToken(token);
+            tokenCount++;
+            
+            // Check if the lexer is stuck at the same position
+            if (token.line == lastLine && token.column == lastColumn && 
+                token.type != TokenType::EOF_TOKEN) {
+                std::cerr << "ERROR: Lexer stuck at line " << token.line << ", column " 
+                          << token.column << " (possible infinite loop)\n";
+                return false;
+            }
+            
+            lastLine = token.line;
+            lastColumn = token.column;
+            
+            if (tokenCount >= MAX_TOKENS) {
+                std::cerr << "ERROR: Too many tokens generated (possible infinite loop)\n";
+                return false;
+            }
+            
+        } while (token.type != TokenType::EOF_TOKEN);
+        
+        std::cout << "Successfully processed " << tokenCount << " tokens.\n";
+        return true;
     }
-    std::cout << "\n";
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 int main() {
-    // Test 1: Basic tokens
-    testLexer("( ) { } [ ] , . ; + - * / = == != < > && ||", "Basic Tokens");
+    // Test each part incrementally to isolate problems
+    bool allPassed = true;
     
-    // Test 2: Keywords
-    testLexer("if else while for return function", "Keywords");
+    // Test 1: Simple style includes
+    allPassed &= testLexerChunk("Style includes", 
+        "style <iostream>\nstyle <string>\n");
     
-    // Test 3: Literals
-    testLexer("identifier _private camelCase snake_case NUM1 x y z true false", "Identifiers and Booleans");
+    // Test 2: Garden declaration
+    allPassed &= testLexerChunk("Garden declaration", 
+        "garden SimpleGarden\n");
     
-    // Test 4: Numbers
-    testLexer("123 3.14159 0.5 42.0 0", "Numbers");
+    // Test 3: Start of species declaration
+    allPassed &= testLexerChunk("Species declaration start", 
+        "species Rose {\n");
     
-    // Test 5: Strings
-    testLexer("\"Hello, World!\" \"This is a test string\" \"Special chars: \\n\\t\\\\\"", "Strings");
+    // Test 4: Open section
+    allPassed &= testLexerChunk("Open section", 
+        "open:\n    grow sayHello() -> void {\n");
     
-    // Test 6: Single line comments
-    testLexer("// This is a comment\nx = 5; // This is another comment", "Single Line Comments");
+    // Test 5: Function body
+    allPassed &= testLexerChunk("Function body", 
+        "        bloom << \"Hello from Hanami Rose!\\n\";\n"
+        "        blossom;\n    }\n");
     
-    // Test 7: Multi-line comments
-    testLexer("/* This is a\nmulti-line\ncomment */\ny = 10;", "Multi-line Comments");
+    // Test 6: Hidden section
+    allPassed &= testLexerChunk("Hidden section", 
+        "hidden:\n    int secretNumber = 42;\n");
     
-    // Test 8: Mixed code
-    testLexer("function test(x, y) {\n  if (x > y) {\n    return x;\n  } else {\n    return y;\n  }\n}", 
-              "Mixed Code");
+    // Test 7: Guarded section
+    allPassed &= testLexerChunk("Guarded section", 
+        "guarded:\n    bool isFriendly = true;\n};");
     
-    // Test 9: Error cases
-    testLexer("@#$%^&", "Error Cases");
+    // Test 8: Main function start
+    allPassed &= testLexerChunk("Main function start", 
+        "grow mainGarden() -> int {\n"
+        "    std::string userName;\n\n"
+        "    bloom << \"What's your name? \";\n"
+        "    water >> userName;\n");
     
-    // Test 10: Line and column tracking
-    testLexer("if (x == 10) {\n    return true;\n}", "Line and Column Tracking");
+    // Test 9: Object creation and method call
+    allPassed &= testLexerChunk("Object creation", 
+        "    Rose g;\n"
+        "    g.sayHello();\n");
     
-    // Test 11: Complex example
-    std::string complexExample = R"(
-function Calculator() {
-  this.result = 0;
-
-  // Add two numbers
-  this.add = function(a, b) {
-    return a + b; // Return the sum
-  };
-
-  /* Multiply 
-     two numbers */
-  this.multiply = function(a, b) {
-    return a * b;
-  };
-}
-
-var calc = new Calculator();
-var sum = calc.add(5, 10);
-if (sum > 10) {
-  return true;
-} else {
-  return false;
-}
-)";
-    testLexer(complexExample, "Complex Example");
+    // Test 10: Branch statements
+    allPassed &= testLexerChunk("Branch statements", 
+        "    branch (userName == \"Rose\") {\n"
+        "        bloom << \"You have a lovely name!\\n\";\n"
+        "    }\n"
+        "    else branch (userName == \"Lily\") {\n"
+        "        bloom << \"Another beautiful flower name!\\n\";\n"
+        "    }\n"
+        "    else {\n"
+        "        bloom << \"Nice to meet you, \" << userName << \"!\\n\";\n"
+        "    }\n");
     
-    return 0;
+    // Test 11: Function end
+    allPassed &= testLexerChunk("Function end", 
+        "    blossom 0;\n}");
+    
+    // Test 12: Full program (if the individual parts succeeded)
+    if (allPassed) {
+        const std::string fullProgram = 
+            "style <iostream>\n"
+            "style <string>\n\n"
+            "garden SimpleGarden\n\n"
+            "species Rose {\n"
+            "open:\n"
+            "    grow sayHello() -> void {\n"
+            "        bloom << \"Hello from Hanami Rose!\\n\";\n"
+            "        blossom;\n"
+            "    }\n\n"
+            "hidden:\n"
+            "    int secretNumber = 42;\n\n"
+            "guarded:\n"
+            "    bool isFriendly = true;\n"
+            "};\n\n"
+            "grow mainGarden() -> int {\n"
+            "    std::string userName;\n\n"
+            "    bloom << \"What's your name? \";\n"
+            "    water >> userName;\n\n"
+            "    Rose g;\n"
+            "    g.sayHello();\n\n"
+            "    branch (userName == \"Rose\") {\n"
+            "        bloom << \"You have a lovely name!\\n\";\n"
+            "    }\n"
+            "    else branch (userName == \"Lily\") {\n"
+            "        bloom << \"Another beautiful flower name!\\n\";\n"
+            "    }\n"
+            "    else {\n"
+            "        bloom << \"Nice to meet you, \" << userName << \"!\\n\";\n"
+            "    }\n\n"
+            "    blossom 0;\n"
+            "}";
+        
+        std::cout << "\n=== TESTING FULL PROGRAM ===\n";
+        testLexerChunk("Full Hanami Program", fullProgram);
+    }
+    
+    // Final results
+    if (allPassed) {
+        std::cout << "\n=== ALL TESTS PASSED ===\n";
+    } else {
+        std::cout << "\n=== SOME TESTS FAILED ===\n";
+        std::cout << "Check the output above to see where the lexer is failing.\n";
+    }
+    
+    return allPassed ? 0 : 1;
 }
