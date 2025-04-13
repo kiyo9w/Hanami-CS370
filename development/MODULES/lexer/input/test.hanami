@@ -1,0 +1,40 @@
+style <iostream>
+style <string>
+
+garden SimpleGarden
+
+species Rose {
+open:
+    grow sayHello() -> void {
+        bloom << "Hello from Hanami Rose!\n";
+        blossom;
+    }
+
+hidden:
+    int secretNumber = 42;
+
+guarded:
+    bool isFriendly = true;
+};
+
+grow mainGarden() -> int {
+    std::string userName;
+
+    bloom << "What's your name? ";
+    water >> userName;
+
+    Rose g;
+    g.sayHello();
+
+    branch (userName == "Rose") {
+        bloom << "You have a lovely name!\n";
+    }
+    else branch (userName == "Lily") {
+        bloom << "Another beautiful flower name!\n";
+    }
+    else {
+        bloom << "Nice to meet you, " << userName << "!\n";
+    }
+
+    blossom 0;
+} 

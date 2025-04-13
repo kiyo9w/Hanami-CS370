@@ -1,0 +1,86 @@
+// test_final.hanami
+// A comprehensive test program for the Hanami language pipeline.
+
+// Basic includes expected by C++ output
+style <iostream>
+style <string>
+style <vector> // Might be needed for C++ depending on implementation details
+
+garden TestGarden
+
+// Define a species representing a simple Pet
+species Pet {
+hidden:
+    string name = "Unknown";
+    int age = 0;
+
+open:
+    // Method to set pet details
+    grow setDetails(string newName, int newAge) -> void {
+        name = newName;
+        age = newAge;
+        bloom << "Pet details updated: Name=" << name << ", Age=" << age << "\n";
+        blossom; // Return void
+    }
+
+    // Method for the pet to introduce itself
+    grow introduce() -> void {
+        bloom << "Woof! My name is " << name << " and I am " << age << " year(s) old.\n";
+        blossom;
+    }
+
+guarded:
+    // Example guarded method
+    grow getAgeInDogYears() -> int {
+        blossom age * 7; // Return int
+    }
+
+}; // End species Pet
+
+// Main function acting as the program entry point
+grow mainGarden() -> int {
+
+    bloom << "--- Hanami Pet Program Starting ---\n";
+
+    // Declare variables
+    string ownerName;
+    bool nameIsHanami = false;
+    int calculatedValue = 0;
+
+    // Create an instance of Pet
+    Pet myDog;
+
+    // Use member function to set details
+    myDog.setDetails("Buddy", 3);
+
+    // Use another member function
+    myDog.introduce();
+
+    // Get input from the user
+    bloom << "What is your name? ";
+    water >> ownerName;
+
+    // Conditional logic (branch)
+    branch (ownerName == "Hanami") {
+        bloom << "Welcome, Creator Hanami!\n";
+        nameIsHanami = true;
+        calculatedValue = 100;
+    } else branch (ownerName == "Buddy") {
+         bloom << "Hey, that's my name!\n";
+         calculatedValue = 50;
+    }
+    else {
+        bloom << "Nice to meet you, " << ownerName << "!\n";
+        nameIsHanami = false;
+        calculatedValue = myDog.getAgeInDogYears(); // Call guarded method
+    }
+
+    // Perform a simple calculation
+    calculatedValue = calculatedValue + 5;
+    bloom << "Calculated value: " << calculatedValue << "\n";
+    bloom << "Is owner Hanami? " << nameIsHanami << "\n";
+
+    bloom << "--- Hanami Pet Program Ending ---\n";
+
+    blossom 0; // Return 0 indicating success
+} 

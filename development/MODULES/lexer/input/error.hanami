@@ -1,0 +1,16 @@
+garden ErrorGarden
+
+grow main() -> void {
+    int value = 10;
+    bloom << "Value: " << value;
+    // Missing semicolon after the next line
+    bool flag = true
+
+    // Invalid character
+    int another = 5 @ 2;
+
+    blossom;
+}
+
+// Unterminated string
+string badString = "hello 

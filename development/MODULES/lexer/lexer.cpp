@@ -1,4 +1,11 @@
+#include "../common/token.h"
 #include "lexer.h"
+
+// Add the constructor definition
+Lexer::Lexer(const std::string& source) : source(source), current(0), line(1), column(1) {
+    // Initialize keyword map
+    initKeywords();
+}
 
 void Lexer::initKeywords(){
     // Các từ khóa Hanami
@@ -834,19 +841,14 @@ char Lexer::advance() {
         int startLine = line;
         std::string lexeme;
         
-        // Đếm số ký tự đã tiêu thụ
-        int consumed = 0;
-        
         // Đọc đến dấu ngoặc kép đóng
         while (!isEnd() && peek() != '"') {
             char c = advance();
             lexeme += c;
-            consumed++;
             
             // Xử lý ký tự đặc biệt và xuống dòng
             if (c == '\\' && !isEnd()) {
                 lexeme += advance();
-                consumed++;
             } else if (c == '\n') {
                 line++;
                 column = 1;
@@ -860,7 +862,6 @@ char Lexer::advance() {
         
         // Tiêu thụ dấu ngoặc kép đóng
         advance();
-        consumed++;
         
         // Trả về token STRING
         return {TokenType::STRING, lexeme, startLine, startColumn};
