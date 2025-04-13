@@ -9,7 +9,8 @@
 
 #include "parser.h"
 #include "../common/token.h" // Includes Token struct and TokenType enum
-#include "json.hpp" // For JSON serialization
+#include "../common/ast.h"   // Explicitly include AST definitions needed by main
+#include "../common/json.hpp" // For JSON serialization
 
 // Helper function to convert string representation of TokenType back to enum
 // NOTE: This needs to be kept in sync with the TokenType enum in token.h
@@ -122,7 +123,7 @@ std::vector<Token> readTokensFromFile(const std::string& filename) {
            } else if (!ss.fail() && isdigit(potentialLexemePart[0])) {
                  // This was the line number, put it back
                  ss.seekg(beforeRead); 
-           } else {
+    } else {
                // Reset fail state if we just hit end of line after type
                ss.clear(); 
                ss.seekg(beforeRead);
@@ -241,4 +242,4 @@ int main(int argc, char* argv[]) {
 
 
     return 0;
-} 
+}
