@@ -20,7 +20,7 @@ class Pet {
     }
 
     getAgeInDogYears() {
-        return (age * 0);
+        return (age * 7);
     }
 
 }
@@ -31,7 +31,7 @@ function mainGarden() {
     let nameIsHanami = false;
     let calculatedValue = 0;
     let myDog = undefined;
-    myDog.setDetails("Buddy", 0);
+    myDog.setDetails("Buddy", 3);
     myDog.introduce();
     console.log("What is your name? ");
     // Basic input using prompt:
@@ -39,18 +39,18 @@ function mainGarden() {
     if ((ownerName === "Hanami")) {
         console.log("Welcome, Creator Hanami!\n");
         nameIsHanami = true;
-        calculatedValue = 0;
+        calculatedValue = 100;
     }
     else if ((ownerName === "Buddy")) {
         console.log("Hey, that's my name!\n");
-        calculatedValue = 0;
+        calculatedValue = 50;
     }
     else {
         console.log("Nice to meet you, " + ownerName + "!\n");
         nameIsHanami = false;
         calculatedValue = myDog.getAgeInDogYears();
     }
-    calculatedValue = (calculatedValue + 0);
+    calculatedValue = (calculatedValue + 5);
     console.log("Calculated value: " + calculatedValue + "\n");
     console.log("Is owner Hanami? " + nameIsHanami + "\n");
     console.log("--- Hanami Pet Program Ending ---\n");

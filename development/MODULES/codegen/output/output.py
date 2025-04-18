@@ -14,7 +14,7 @@ class Pet:
         return
 
     def getAgeInDogYears(self):
-        return (self.age * 0)
+        return (self.age * 7)
 
 
 def mainGarden():
@@ -23,22 +23,22 @@ def mainGarden():
     nameIsHanami = False
     calculatedValue = 0
     myDog = None
-    myDog.setDetails("Buddy", 0)
+    myDog.setDetails("Buddy", 3)
     myDog.introduce()
     print("What is your name? ", end='')
     ownerName = input()
     if (ownerName == "Hanami"):
         print("Welcome, Creator Hanami!\n", end='')
         nameIsHanami = True
-        calculatedValue = 0
+        calculatedValue = 100
     elif (ownerName == "Buddy"):
         print("Hey, that's my name!\n", end='')
-        calculatedValue = 0
+        calculatedValue = 50
     else:
         print("Nice to meet you, ", ownerName, "!\n", end='')
         nameIsHanami = False
         calculatedValue = myDog.getAgeInDogYears()
-    calculatedValue = (calculatedValue + 0)
+    calculatedValue = (calculatedValue + 5)
     print("Calculated value: ", calculatedValue, "\n", end='')
     print("Is owner Hanami? ", nameIsHanami, "\n", end='')
     print("--- Hanami Pet Program Ending ---\n", end='')

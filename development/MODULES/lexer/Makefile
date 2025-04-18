@@ -1,3 +1,5 @@
+# Makefile for lexer directory
+
 # Compiler và flags
 CXX = g++
 CXXFLAGS = -Wall -std=c++17 -I../common -g
@@ -9,6 +11,16 @@ TARGET = lexer_executable
 # Automatically find source files
 SRCS = $(wildcard *.cpp)
 OBJS = $(SRCS:.cpp=.o)
+
+# Detect OS
+ifeq ($(OS),Windows_NT)
+    RM = del /Q /F
+    # Convert paths to Windows format if needed
+    WIN_OBJS = $(subst /,\,$(OBJS))
+    WIN_TARGET = $(subst /,\,$(TARGET))
+else
+    RM = rm -f
+endif
 
 # Rule mặc định
 all: $(TARGET)
@@ -23,7 +35,14 @@ $(TARGET): $(OBJS)
 
 # Rule để dọn dẹp
 clean:
-	rm -f $(OBJS) $(TARGET) output/*.tokens
+ifeq ($(OS),Windows_NT)
+	-if exist "*.o" $(RM) *.o
+	-if exist "$(WIN_TARGET).exe" $(RM) "$(WIN_TARGET).exe"
+	-if exist "$(WIN_TARGET)" $(RM) "$(WIN_TARGET)"
+	-if exist "..\output\*.tokens" $(RM) "..\output\*.tokens"
+else
+	$(RM) $(OBJS) $(TARGET) ../output/*.tokens
+endif
 
 # Rule để chạy chương trình sau khi biên dịch
 # Example: make run INPUT_FILE=input/my_test.hanami

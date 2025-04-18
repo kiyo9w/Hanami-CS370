@@ -24,26 +24,31 @@ public:
              }
         }
         
-        // Determine class name: Use default, non-public if garden exists
-        className_ = gardenName.empty() ? "GeneratedHanamiClass" : "HanamiProgram"; 
+        // Determine class name: Use garden name directly
+        className_ = gardenName.empty() ? "GeneratedHanamiClass" : gardenName;
 
+        // Add imports
+        generatedCode_ << "// Converting Hanami code to Java\n";
         generatedCode_ << "import java.util.Scanner;\n\n";
-        generatedCode_ << "public class " << className_ << " {\n"; // Use the determined class name
+        
+        // Create the class declaration
+        generatedCode_ << "public class " << className_ << " {\n";
         indentLevel++;
 
         // Add a static Scanner instance for input
         generatedCode_ << getIndent() << "private static Scanner inputScanner = new Scanner(System.in);\n\n";
-
-        dispatch(node); // Start visiting
         
-         // Add a default main if none was generated from AST
-         if (!hasMain_) {
+        // Process all AST nodes
+        dispatch(node);
+        
+        // Add a default main if none was generated from AST
+        if (!hasMain_) {
             generatedCode_ << getIndent() << "public static void main(String[] args) {\n";
             indentLevel++;
             generatedCode_ << getIndent() << "System.out.println(\"Hanami program (no main/grow function found)\");\n";
             indentLevel--;
             generatedCode_ << getIndent() << "}\n";
-         }
+        }
          
         indentLevel--;
         generatedCode_ << "}\n";
@@ -54,6 +59,12 @@ private:
     std::stringstream generatedCode_;
     std::string className_ = "GeneratedHanamiClass";
     bool hasMain_ = false;
+    int indentLevel = 0;
+    
+    // Helper method to get proper indentation
+    std::string getIndent() {
+        return std::string(indentLevel * 4, ' ');
+    }
     
     // --- Type Mapping --- 
     std::string mapType(const std::string& hanamiType) {
@@ -61,7 +72,6 @@ private:
         if (hanamiType == "bool") return "boolean";
         if (hanamiType == "string") return "String";
         if (hanamiType == "void") return "void";
-        // TODO: Map Species names to class names
         return hanamiType; // Assume species name is Java class name
     }
     
@@ -93,45 +103,90 @@ private:
         return ""; // Handled by generate()
     }
 
-    std::string visitStyleInclude(StyleIncludeStmt* node) override { return ""; /* Ignore for Java */ }
-    std::string visitGardenDecl(GardenDeclStmt* node) override { return ""; /* Handled in generate() */ }
+    std::string visitStyleInclude(StyleIncludeStmt* node) override { 
+        return ""; // Ignore includes in Java
+    }
+    
+    std::string visitGardenDecl(GardenDeclStmt* node) override { 
+        return ""; // Already handled in generate()
+    }
 
     std::string visitSpeciesDecl(SpeciesDeclStmt* node) override {
         // Generate a class for the species
         std::string speciesCode;
-        speciesCode += getIndent() + "public static class " + node->name + " {\n"; // Static inner class for simplicity
+        speciesCode += getIndent() + "static class " + node->name + " {\n";
         indentLevel++;
+        
+        // Track the current visibility for member declarations
+        TokenType currentVisibility = TokenType::HIDDEN; // Default to private
+        
         for (const auto& section : node->sections) {
-            speciesCode += dispatch(section.get());
+            if (auto* visBlock = dynamic_cast<VisibilityBlockStmt*>(section.get())) {
+                currentVisibility = visBlock->visibility;
+                for (const auto& stmt : visBlock->block->statements) {
+                    // Apply visibility modifier to each statement in the block
+                    if (auto* varDecl = dynamic_cast<VariableDeclStmt*>(stmt.get())) {
+                        speciesCode += getIndent();
+                        switch (currentVisibility) {
+                            case TokenType::OPEN: speciesCode += "public "; break;
+                            case TokenType::GUARDED: speciesCode += "protected "; break;
+                            case TokenType::HIDDEN: speciesCode += "private "; break;
+                            default: break;
+                        }
+                        speciesCode += mapType(varDecl->typeName) + " " + varDecl->varName;
+                        if (varDecl->initializer) {
+                            speciesCode += " = " + dispatchExpr(varDecl->initializer.get());
+                        }
+                        speciesCode += ";\n";
+                    }
+                    else if (auto* funcDef = dynamic_cast<FunctionDefStmt*>(stmt.get())) {
+                        speciesCode += getIndent();
+                        switch (currentVisibility) {
+                            case TokenType::OPEN: speciesCode += "public "; break;
+                            case TokenType::GUARDED: speciesCode += "protected "; break;
+                            case TokenType::HIDDEN: speciesCode += "private "; break;
+                            default: break;
+                        }
+                        speciesCode += mapType(funcDef->returnType) + " " + funcDef->name + "(";
+                        // Add parameters
+                        for (size_t i = 0; i < funcDef->parameters.size(); ++i) {
+                            speciesCode += mapType(funcDef->parameters[i].typeName) + " " + 
+                                          funcDef->parameters[i].paramName;
+                            if (i < funcDef->parameters.size() - 1) speciesCode += ", ";
+                        }
+                        speciesCode += ") {\n";
+                        indentLevel++;
+                        // Add function body
+                        if (funcDef->body) {
+                           for(const auto& bodyStmt : funcDef->body->statements){
+                                speciesCode += dispatch(bodyStmt.get());
+                           }
+                        }
+                        indentLevel--;
+                        speciesCode += getIndent() + "}\n\n";
+                    }
+                    else {
+                        speciesCode += dispatch(stmt.get());
+                    }
+                }
+            }
+            else {
+                speciesCode += dispatch(section.get());
+            }
         }
-        // TODO: Add constructor?
+        
         indentLevel--;
         speciesCode += getIndent() + "}\n\n";
         return speciesCode;
     }
 
     std::string visitVisibilityBlock(VisibilityBlockStmt* node) override {
-         // Map Hanami visibility to Java access modifiers
-         std::string modifier = "";
-         switch(node->visibility) {
-             case TokenType::OPEN: modifier = "public "; break;
-             case TokenType::GUARDED: modifier = "protected "; break; // Or package-private? 
-             case TokenType::HIDDEN: modifier = "private "; break;
-             default: break;
-         }
-         // Apply modifier to contained declarations (more complex in reality)
-          std::string blockCode = dispatch(node->block.get()); // Visit block first
-          // This simple approach won't work perfectly for modifiers; 
-          // Modifiers need to be applied *during* member/method visit
-          // For now, just return the block code.
-          return blockCode;
-          // We need to pass the modifier down to visitVariableDecl/visitFunctionDef
+        // This is now handled in visitSpeciesDecl for better visibility control
+        return "";
     }
 
     std::string visitBlock(BlockStmt* node) override {
         std::string blockCode = "";
-        // Note: Java doesn't usually need standalone braces unless for specific scope needs
-        // Here, we just process the statements.
         for (const auto& stmt : node->statements) {
              blockCode += dispatch(stmt.get());
         }
@@ -140,167 +195,259 @@ private:
 
     std::string visitVariableDecl(VariableDeclStmt* node) override {
         std::string code = getIndent();
-        // TODO: Need to handle visibility modifier passed down
         std::string javaType = mapType(node->typeName);
         code += javaType + " " + node->varName;
+        
         if (node->initializer) {
             code += " = " + dispatchExpr(node->initializer.get());
-        } else {
-            // Initialize object types (simple check: starts with uppercase)
-            if (!node->typeName.empty() && std::isupper(node->typeName[0])) {
-                 // Assuming default constructor exists
-                 code += " = new " + javaType + "()"; 
-            }
-            // Primitives like int, boolean are auto-initialized to defaults (0, false) in Java fields,
-            // but local variables need explicit initialization if read before written.
-            // For simplicity, we only explicitly initialize assumed objects here.
+        } else if (!node->typeName.empty() && std::isupper(node->typeName[0])) {
+            // Initialize object types
+            code += " = new " + javaType + "()";
         }
+        
         code += ";\n";
         return code;
     }
 
     std::string visitFunctionDef(FunctionDefStmt* node) override {
-         std::string code = getIndent();
-         // TODO: Handle visibility modifier
-         bool isMain = (node->name == "mainGarden" || node->name == "main"); // Approximation
-         if(isMain) {
-             code += "public static ";
-             hasMain_ = true;
-         } else {
-              code += "public "; // Default to public methods for now
-         }
-         
-         code += mapType(node->returnType) + " " + node->name + "(";
-         for (size_t i = 0; i < node->parameters.size(); ++i) {
-            code += mapType(node->parameters[i].typeName) + " " + node->parameters[i].paramName;
-            if (i < node->parameters.size() - 1) code += ", ";
-         }
-         code += ") {\n";
-         indentLevel++;
-         // Function body is a BlockStmt, visit its *statements*
-         if (node->body) {
-            for(const auto& stmt : node->body->statements){
-                 code += dispatch(stmt.get());
+        std::string code = getIndent();
+        
+        // IMPORTANT FIX: Check specifically for mainGarden function name
+        // This is the entry point for Hanami programs
+        if (node->name == "mainGarden") {
+            hasMain_ = true;
+            code += "public static void main(String[] args) {\n";
+            indentLevel++;
+            
+            // Add function body with return value handling if needed
+            if (node->body) {
+                for (const auto& stmt : node->body->statements) {
+                    // For return statements in mainGarden, convert to System.exit()
+                    if (auto* returnStmt = dynamic_cast<ReturnStmt*>(stmt.get())) {
+                        if (returnStmt->returnValue) {
+                            code += getIndent() + "System.exit(" + dispatchExpr(returnStmt->returnValue.get()) + ");\n";
+                        } else {
+                            code += getIndent() + "System.exit(0);\n";
+                        }
+                    } else {
+                        code += dispatch(stmt.get());
+                    }
+                }
             }
-         }
-         indentLevel--;
-         code += getIndent() + "}\n\n";
-         return code;
+            
+            indentLevel--;
+            code += getIndent() + "}\n\n";
+            return code;
+        }
+        // Handle normal function
+        else {
+            code += "public static " + mapType(node->returnType) + " " + node->name + "(";
+            // Add parameters
+            for (size_t i = 0; i < node->parameters.size(); ++i) {
+                code += mapType(node->parameters[i].typeName) + " " + node->parameters[i].paramName;
+                if (i < node->parameters.size() - 1) code += ", ";
+            }
+            code += ") {\n";
+            
+            indentLevel++;
+            
+            // Add function body
+            if (node->body) {
+                for(const auto& stmt : node->body->statements){
+                    code += dispatch(stmt.get());
+                }
+            }
+            
+            indentLevel--;
+            code += getIndent() + "}\n\n";
+            return code;
+        }
     }
 
     std::string visitReturn(ReturnStmt* node) override {
-         std::string code = getIndent() + "return";
-         if (node->returnValue) {
-             code += " " + dispatchExpr(node->returnValue.get());
-         }
-         code += ";\n";
-         return code;
+        std::string code = getIndent() + "return";
+        if (node->returnValue) {
+            code += " " + dispatchExpr(node->returnValue.get());
+        }
+        code += ";\n";
+        return code;
     }
 
     std::string visitExpressionStmt(ExpressionStmt* node) override {
-         // Handle assignment specifically if it wasn't handled in dispatchExpr
-         if(dynamic_cast<AssignmentStmt*>(node->expression.get())){
-              return getIndent() + dispatchExpr(node->expression.get()) + ";\n";
-         }
-          // Other expressions used as statements (e.g., function calls)
-         return getIndent() + dispatchExpr(node->expression.get()) + ";\n";
+        return getIndent() + dispatchExpr(node->expression.get()) + ";\n";
     }
 
     std::string visitBranch(BranchStmt* node) override {
-         std::string code = "";
-         bool first = true;
-         for(const auto& branch : node->branches) {
-             code += getIndent();
-             if (first) {
-                 code += "if (";
-                 first = false;
-             } else {
-                 if (branch.condition) { // else if
-                      code += "else if (";
-                 } else { // else
-                      code += "else {\n";
-                      indentLevel++;
-                      // Body block generation
-                       if (branch.body) {
-                            for(const auto& stmt : branch.body->statements){
-                                 code += dispatch(stmt.get());
-                            }
-                       }
-                      indentLevel--;
-                      code += getIndent() + "}\n";
-                      continue; // Skip rest of loop for else
-                 }
-             }
-              if (branch.condition) code += dispatchExpr(branch.condition.get()) + ") ";
-              code += "{\n";
-              indentLevel++;
-              // Body block generation
-               if (branch.body) {
-                   for(const auto& stmt : branch.body->statements){
-                        code += dispatch(stmt.get());
-                   }
-              }
-              indentLevel--;
-              code += getIndent() + "}\n";
-         }
-         return code;
+        std::string code = "";
+        bool first = true;
+        
+        for(const auto& branch : node->branches) {
+            code += getIndent();
+            
+            if (first) {
+                code += "if (";
+                first = false;
+            } else {
+                if (branch.condition) {
+                    code += "else if (";
+                } else {
+                    code += "else {\n";
+                    indentLevel++;
+                    
+                    if (branch.body) {
+                        for(const auto& stmt : branch.body->statements){
+                            code += dispatch(stmt.get());
+                        }
+                    }
+                    
+                    indentLevel--;
+                    code += getIndent() + "}\n";
+                    continue;
+                }
+            }
+            
+            if (branch.condition) {
+                code += dispatchExpr(branch.condition.get()) + ") {\n";
+            }
+            
+            indentLevel++;
+            
+            if (branch.body) {
+                for(const auto& stmt : branch.body->statements){
+                    code += dispatch(stmt.get());
+                }
+            }
+            
+            indentLevel--;
+            code += getIndent() + "}\n";
+        }
+        
+        return code;
     }
 
     std::string visitIO(IOStmt* node) override {
-         std::string code = "";
-          if (node->ioType == TokenType::BLOOM) { // Output
-              code += getIndent() + "System.out.print(";
-               for (size_t i = 0; i < node->expressions.size(); ++i) {
-                  code += dispatchExpr(node->expressions[i].get());
-                  if (i < node->expressions.size() - 1) code += " + "; // Concatenate for print
-               }
-               code += ");\n"; // Use print, handle println via \n in string literal
-          } else if (node->ioType == TokenType::WATER) { // Input
-               // Use the static scanner - reads as String, manual conversion may be needed
-               for (const auto& expr : node->expressions) {
-                    if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr.get())) {
-                        code += getIndent() + ident->name + " = inputScanner.nextLine(); // Reads as String\n";
-                        // TODO: Manual type conversion needed here if target is not String (e.g., Integer.parseInt)
-                    } else { 
-                        code += getIndent() + "/* Error: Cannot read input into non-variable */\n";
-                    }
-               }
-          }
-          return code;
+        std::string code = getIndent();
+        
+        if (node->ioType == TokenType::BLOOM) { // Output
+            code += "System.out.print(";
+            for (size_t i = 0; i < node->expressions.size(); ++i) {
+                code += dispatchExpr(node->expressions[i].get());
+                if (i < node->expressions.size() - 1) code += " + "; // Concatenate for print
+            }
+            code += ");\n"; // Use print, handle println via \n in string literal
+        } else if (node->ioType == TokenType::WATER) { // Input
+            // Use the static scanner - reads as String, manual conversion may be needed
+            for (const auto& expr : node->expressions) {
+                if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr.get())) {
+                    code += ident->name + " = inputScanner.nextLine(); // Reads as String\n";
+                    // TODO: Manual type conversion needed here if target is not String (e.g., Integer.parseInt)
+                }
+                else { 
+                    code += "/* Error: Cannot read input into non-variable */\n";
+                }
+            }
+        }
+        
+        return code;
+    }
+    
+    // Expression dispatch helper
+    std::string dispatchExpr(Expression* expr) {
+        if (auto* ident = dynamic_cast<IdentifierExpr*>(expr)) {
+            return visitIdentifierExpr(ident);
+        }
+        else if (auto* num = dynamic_cast<NumberLiteralExpr*>(expr)) {
+            return visitNumberLiteralExpr(num);
+        }
+        else if (auto* str = dynamic_cast<StringLiteralExpr*>(expr)) {
+            return visitStringLiteralExpr(str);
+        }
+        else if (auto* boolean = dynamic_cast<BooleanLiteralExpr*>(expr)) {
+            return visitBooleanLiteralExpr(boolean);
+        }
+        else if (auto* binary = dynamic_cast<BinaryOpExpr*>(expr)) {
+            return visitBinaryOpExpr(binary);
+        }
+        else if (auto* call = dynamic_cast<FunctionCallExpr*>(expr)) {
+            return visitFunctionCallExpr(call);
+        }
+        else if (auto* access = dynamic_cast<MemberAccessExpr*>(expr)) {
+            return visitMemberAccessExpr(access);
+        }
+        else if (auto* assign = dynamic_cast<AssignmentStmt*>(expr)) {
+            return visitAssignmentStmt(assign);
+        }
+        return "/* Unknown expression */";
     }
     
     // --- Expression Visitors ---
-     std::string visitIdentifierExpr(IdentifierExpr* node) override { return node->name; }
-     std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { return node->value.empty() ? "0" : node->value; }
-     std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
-         // Java uses double quotes, escapes might need translation?
-          return "\"" + node->value + "\""; 
-     }
-     std::string visitBooleanLiteralExpr(BooleanLiteralExpr* node) override { return node->value ? "true" : "false"; }
-     
-     std::string visitBinaryOpExpr(BinaryOpExpr* node) override {
-          return "(" + dispatchExpr(node->left.get()) + " " + 
-                     mapBinaryOperator(node->op) + " " + 
-                     dispatchExpr(node->right.get()) + ")";
-     }
-     
-     std::string visitFunctionCallExpr(FunctionCallExpr* node) override {
-         std::string code = dispatchExpr(node->callee.get()) + "(";
-          for (size_t i = 0; i < node->arguments.size(); ++i) {
-             code += dispatchExpr(node->arguments[i].get());
-             if (i < node->arguments.size() - 1) code += ", ";
-         }
-         code += ")";
-         return code;
-     }
-     
-     std::string visitMemberAccessExpr(MemberAccessExpr* node) override {
-         // Simple dot notation for Java
-         return dispatchExpr(node->object.get()) + "." + node->member->name;
-     }
-     
-      std::string visitAssignmentStmt(AssignmentStmt* node) override {
-          return dispatchExpr(node->left.get()) + " = " + dispatchExpr(node->right.get());
-      }
-
-}; 
+    std::string visitIdentifierExpr(IdentifierExpr* node) override { 
+        return node->name; 
+    }
+    
+    std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { 
+        return node->value.empty() ? "0" : node->value; 
+    }
+    
+    std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
+        return "\"" + node->value + "\""; 
+    }
+    
+    std::string visitBooleanLiteralExpr(BooleanLiteralExpr* node) override { 
+        return node->value ? "true" : "false"; 
+    }
+    
+    std::string visitBinaryOpExpr(BinaryOpExpr* node) override {
+        // Special handling for string equality operations
+        if ((node->op == TokenType::EQUAL || node->op == TokenType::NOT_EQUAL)) {
+            // Try to determine if operands might be strings
+            // This is a simple heuristic - in a real compiler you would use type information
+            bool mightBeStringComparison = false;
+            
+            // Check if either operand is a string literal
+            if (auto* left = dynamic_cast<StringLiteralExpr*>(node->left.get())) {
+                mightBeStringComparison = true;
+            }
+            if (auto* right = dynamic_cast<StringLiteralExpr*>(node->right.get())) {
+                mightBeStringComparison = true;
+            }
+            
+            // For string comparison, use equals() method
+            if (mightBeStringComparison) {
+                if (node->op == TokenType::EQUAL) {
+                    return "(" + dispatchExpr(node->left.get()) + ".equals(" + 
+                           dispatchExpr(node->right.get()) + "))";
+                } else { // NOT_EQUAL
+                    return "(!(" + dispatchExpr(node->left.get()) + ".equals(" + 
+                           dispatchExpr(node->right.get()) + ")))";
+                }
+            }
+        }
+        
+        // Standard handling for non-string comparisons
+        return "(" + dispatchExpr(node->left.get()) + " " + 
+                    mapBinaryOperator(node->op) + " " + 
+                    dispatchExpr(node->right.get()) + ")";
+    }
+    
+    
+    std::string visitFunctionCallExpr(FunctionCallExpr* node) override {
+        std::string code = dispatchExpr(node->callee.get()) + "(";
+        
+        for (size_t i = 0; i < node->arguments.size(); ++i) {
+            code += dispatchExpr(node->arguments[i].get());
+            if (i < node->arguments.size() - 1) code += ", ";
+        }
+        
+        code += ")";
+        return code;
+    }
+    
+    std::string visitMemberAccessExpr(MemberAccessExpr* node) override {
+        return dispatchExpr(node->object.get()) + "." + node->member->name;
+    }
+    
+    std::string visitAssignmentStmt(AssignmentStmt* node) override {
+        return dispatchExpr(node->left.get()) + " = " + dispatchExpr(node->right.get());
+    }
+};

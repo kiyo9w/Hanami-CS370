@@ -1,43 +1,55 @@
+# Makefile for semantic_analyzer directory
+
 # Compiler and flags
 CXX = g++
-# Add include paths for common headers and nlohmann/json
-# Assuming json.hpp is also in common or accessible system-wide
-CXXFLAGS = -Wall -std=c++17 -I../common -g 
+CXXFLAGS = -Wall -std=c++17 -I../common -g
 
-# Target executable name
+# Object files
+OBJS = main.o
+
+# Target executable
 TARGET = semantic_analyzer_executable
 
-# Source files (assuming only main.cpp for now)
-SRCS = main.cpp 
+# Common directory
+COMMON_DIR = ../common
 
-# Add common objects to the list
-COMMON_OBJS = ../common/json_deserializer.o 
+# Common objects
+COMMON_OBJS = $(COMMON_DIR)/json_deserializer.o
 
-# Object files derived from source files
-OBJS = $(SRCS:.cpp=.o)
+# Detect OS
+ifeq ($(OS),Windows_NT)
+    RM = del /Q /F
+    # Convert paths to Windows format
+    WIN_OBJS = $(subst /,\,$(OBJS))
+    WIN_TARGET = $(subst /,\,$(TARGET))
+    WIN_COMMON_OBJS = $(subst /,\,$(COMMON_OBJS))
+else
+    RM = rm -f
+endif
 
-# Default rule: build the target executable
+# Rules
 all: $(TARGET)
 
-# Rule to link the target executable
 $(TARGET): $(OBJS) $(COMMON_OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) $(COMMON_OBJS) -o $(TARGET)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-# Rule to compile .cpp files into .o files
-%.o: %.cpp ../common/ast.h ../common/token.h # Add dependencies
+# Rule to compile object files
+%.o: %.cpp %.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Rule to compile common files (adjust path as needed)
-../common/json_deserializer.o: ../common/json_deserializer.cpp ../common/json_deserializer.h ../common/ast.h ../common/token.h
-	$(CXX) $(CXXFLAGS) -c ../common/json_deserializer.cpp -o ../common/json_deserializer.o
+main.o: main.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Rule to clean up generated files
+# Clean rule
 clean:
-	rm -f $(OBJS) $(TARGET) output/*.ir ../common/*.o # Also clean common object file
+ifeq ($(OS),Windows_NT)
+	-if exist "*.o" $(RM) *.o
+	-if exist "$(WIN_TARGET).exe" $(RM) "$(WIN_TARGET).exe"
+	-if exist "$(WIN_TARGET)" $(RM) "$(WIN_TARGET)"
+	-if exist "..\output\*.ir" $(RM) "..\output\*.ir"
+	-if exist "$(WIN_COMMON_OBJS)" $(RM) "$(WIN_COMMON_OBJS)"
+else
+	$(RM) *.o $(TARGET) ../output/*.ir $(COMMON_OBJS)
+endif
 
-# Rule to run the executable (uses default input/output paths)
-run: $(TARGET)
-	./$(TARGET)
-
-# Phony targets avoid conflicts with actual file names
-.PHONY: all clean run 
+.PHONY: all clean

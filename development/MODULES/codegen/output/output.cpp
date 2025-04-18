@@ -22,7 +22,7 @@ struct Pet {
 
     public:
         int getAgeInDogYears() {
-            return (age * 0);
+            return (age * 7);
         }
 
 };
@@ -33,25 +33,25 @@ int main() {
     bool nameIsHanami = false;
     int calculatedValue = 0;
     Pet myDog;
-    myDog.setDetails(std::string("Buddy"), 0);
+    myDog.setDetails(std::string("Buddy"), 3);
     myDog.introduce();
     std::cout << std::string("What is your name? ");
     std::cin >> ownerName;
     if ((ownerName == std::string("Hanami"))) {
         std::cout << std::string("Welcome, Creator Hanami!\n");
         nameIsHanami = true;
-        calculatedValue = 0;
+        calculatedValue = 100;
     }
     else if ((ownerName == std::string("Buddy"))) {
         std::cout << std::string("Hey, that's my name!\n");
-        calculatedValue = 0;
+        calculatedValue = 50;
     }
     else {
         std::cout << std::string("Nice to meet you, ") << ownerName << std::string("!\n");
         nameIsHanami = false;
         calculatedValue = myDog.getAgeInDogYears();
     }
-    calculatedValue = (calculatedValue + 0);
+    calculatedValue = (calculatedValue + 5);
     std::cout << std::string("Calculated value: ") << calculatedValue << std::string("\n");
     std::cout << std::string("Is owner Hanami? ") << nameIsHanami << std::string("\n");
     std::cout << std::string("--- Hanami Pet Program Ending ---\n");
