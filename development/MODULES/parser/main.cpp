@@ -91,6 +91,12 @@ std::vector<Token> readTokensFromFile(const std::string& filename) {
             if (type == TokenType::STRING && nextChar == '"') {
                 ss >> std::quoted(lexeme); // Read quoted string lexeme
             } else {
+
+                if (type == TokenType::NUMBER) {
+                    ss >> lexeme; // lấy toàn bộ phần số còn lại
+                }
+
+                else {
                  // Read until the next number (start of line/column)
                  std::string word;
                  // Capture potential multi-word lexemes or paths
@@ -105,6 +111,7 @@ std::vector<Token> readTokensFromFile(const std::string& filename) {
                  if (!lexeme.empty() && isspace(lexeme.back())) {
                     lexeme.pop_back();
                  }
+                }
             }
             if (ss.fail() && !(type == TokenType::ERROR && lexeme.empty())) { // Allow empty lexeme for some errors
                  std::cerr << "Warning: Failed to read lexeme for " << tokenTypeStr << " on line " << currentLineNum << std::endl;

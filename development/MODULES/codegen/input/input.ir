@@ -37,7 +37,7 @@
                             {
                                 "initializer": {
                                     "node_type": "NumberLiteralExpr",
-                                    "value": ""
+                                    "value": "0"
                                 },
                                 "node_type": "VariableDeclStmt",
                                 "typeName": "int",
@@ -197,7 +197,7 @@
                                                 "operator": 21,
                                                 "right": {
                                                     "node_type": "NumberLiteralExpr",
-                                                    "value": ""
+                                                    "value": "7"
                                                 }
                                             }
                                         }
@@ -248,7 +248,7 @@
                     {
                         "initializer": {
                             "node_type": "NumberLiteralExpr",
-                            "value": ""
+                            "value": "0"
                         },
                         "node_type": "VariableDeclStmt",
                         "typeName": "int",
@@ -269,7 +269,7 @@
                                 },
                                 {
                                     "node_type": "NumberLiteralExpr",
-                                    "value": ""
+                                    "value": "3"
                                 }
                             ],
                             "callee": {
@@ -367,7 +367,7 @@
                                                 "node_type": "AssignmentStmt",
                                                 "right": {
                                                     "node_type": "NumberLiteralExpr",
-                                                    "value": ""
+                                                    "value": "100"
                                                 }
                                             },
                                             "node_type": "ExpressionStmt"
@@ -411,7 +411,7 @@
                                                 "node_type": "AssignmentStmt",
                                                 "right": {
                                                     "node_type": "NumberLiteralExpr",
-                                                    "value": ""
+                                                    "value": "50"
                                                 }
                                             },
                                             "node_type": "ExpressionStmt"
@@ -516,7 +516,7 @@
                                 "operator": 19,
                                 "right": {
                                     "node_type": "NumberLiteralExpr",
-                                    "value": ""
+                                    "value": "5"
                                 }
                             }
                         },
@@ -575,7 +575,7 @@
                         "node_type": "ReturnStmt",
                         "returnValue": {
                             "node_type": "NumberLiteralExpr",
-                            "value": ""
+                            "value": "0"
                         }
                     }
                 ]
