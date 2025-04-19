@@ -126,20 +126,21 @@ private:
     }
 
     std::string visitVisibilityBlock(VisibilityBlockStmt* node) override {
-         // Add C++ access specifiers
-         std::string code = "";
-         switch(node->visibility) {
-             case TokenType::OPEN: code += getIndent() + "public:\n"; break;
-             case TokenType::GUARDED: code += getIndent() + "public:\n"; break; // Treat guarded as public for now
-             case TokenType::HIDDEN: code += getIndent() + "private:\n"; break;
-             default: break;
-         }
-          // Add indent temporarily for members under specifier
-         // Note: This assumes block only contains declarations
-         indentLevel++; 
-         code += dispatch(node->block.get());
-         indentLevel--;
-         return code;
+        // Add C++ access specifiers
+        std::string code = "";
+        switch(node->visibility) {
+            case TokenType::OPEN: code += getIndent() + "public:\n"; break;
+            case TokenType::GUARDED: code += getIndent() + "public:\n"; break; // Treat guarded as public for now
+            case TokenType::HIDDEN: code += getIndent() + "private:\n"; break;
+            default: break;
+        }
+        
+        // Add indent temporarily for members under specifier
+        // Note: This assumes block only contains declarations
+        indentLevel++; 
+        code += dispatch(node->block.get());
+        indentLevel--;
+        return code;
     }
 
     std::string visitBlock(BlockStmt* node) override {

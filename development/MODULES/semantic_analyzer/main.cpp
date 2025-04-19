@@ -22,13 +22,24 @@ std::unique_ptr<Statement> statementFromJson(const nlohmann::json& j);
 
 enum class SymbolType { VARIABLE, FUNCTION, SPECIES, UNKNOWN };
 
+enum class Visibility { PUBLIC = 2, PRIVATE = 3, PROTECTED = 4, DEFAULT = 0 };
+
 struct SymbolEntry {
     std::string name;
     std::string typeName; // e.g., "int", "void", "Rose"
     SymbolType kind = SymbolType::UNKNOWN;
     int scopeLevel = 0;
+    Visibility visibility = Visibility::DEFAULT;
+    std::string parentSpecies = ""; // Tên của species chứa member này (nếu là member)
     // Add more info: is_param, is_member, visibility, etc.
 }; 
+
+struct SpeciesMemberInfo {
+    std::string name;
+    std::string type;
+    SymbolType kind;
+    Visibility visibility;
+};
 
 class SymbolTable {
 public:
@@ -47,7 +58,8 @@ public:
     }
 
     // Define a symbol in the current scope
-    bool define(const std::string& name, const std::string& type, SymbolType kind) {
+    bool define(const std::string& name, const std::string& type, SymbolType kind, 
+                Visibility visibility = Visibility::DEFAULT, const std::string& parentSpecies = "") {
         if (scopes_.empty()) return false; // Should not happen
         
         // Check if already defined in the *current* scope
@@ -56,7 +68,18 @@ public:
             return false; // Already defined in this scope
         }
         
-        currentScope[name] = {name, type, kind, currentLevel_};
+        SymbolEntry entry = {name, type, kind, currentLevel_};
+        entry.visibility = visibility;
+        entry.parentSpecies = parentSpecies;
+        
+        currentScope[name] = entry;
+        
+        // Nếu đây là một member của species, lưu vào speciesMembers_
+        if (!parentSpecies.empty()) {
+            SpeciesMemberInfo memberInfo = {name, type, kind, visibility};
+            speciesMembers_[parentSpecies].push_back(memberInfo);
+        }
+        
         return true;
     }
 
@@ -72,10 +95,60 @@ public:
     }
     
     int getCurrentLevel() const { return currentLevel_; }
+    
+    // Kiểm tra xem species có member cụ thể không
+    bool hasSpeciesMember(const std::string& speciesName, const std::string& memberName) {
+        auto it = speciesMembers_.find(speciesName);
+        if (it != speciesMembers_.end()) {
+            for (const auto& member : it->second) {
+                if (member.name == memberName && 
+                    (member.visibility == Visibility::PUBLIC || 
+                     currentSpeciesContext_ == speciesName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Lấy kiểu dữ liệu của member
+    std::string getSpeciesMemberType(const std::string& speciesName, const std::string& memberName) {
+        auto it = speciesMembers_.find(speciesName);
+        if (it != speciesMembers_.end()) {
+            for (const auto& member : it->second) {
+                if (member.name == memberName && 
+                    (member.visibility == Visibility::PUBLIC || 
+                     currentSpeciesContext_ == speciesName)) {
+                    return member.type;
+                }
+            }
+        }
+        return "";
+    }
+    
+    // Thiết lập context species hiện tại (dùng khi phân tích bên trong species)
+    void setCurrentSpeciesContext(const std::string& speciesName) {
+        currentSpeciesContext_ = speciesName;
+    }
+    
+    // Lấy tất cả các member của species
+    std::vector<SpeciesMemberInfo> getSpeciesMembers(const std::string& speciesName) {
+        auto it = speciesMembers_.find(speciesName);
+        if (it != speciesMembers_.end()) {
+            return it->second;
+        }
+        return {};
+    }
 
 private:
     std::vector<std::map<std::string, SymbolEntry>> scopes_;
     int currentLevel_ = -1;
+    
+    // Lưu trữ member của từng species
+    std::unordered_map<std::string, std::vector<SpeciesMemberInfo>> speciesMembers_;
+    
+    // Species context hiện tại - dùng để kiểm tra quyền truy cập private/protected
+    std::string currentSpeciesContext_ = "";
 };
 
 // --- Semantic Analysis Visitor --- 
@@ -195,48 +268,49 @@ private:
             return "";
         }
 
-        // Function Calls
-        if (FunctionCallExpr* call = dynamic_cast<FunctionCallExpr*>(expr)) {
-            if (IdentifierExpr* calleeIdent = dynamic_cast<IdentifierExpr*>(call->callee.get())) {
-                SymbolEntry* funcEntry = symbolTable_.lookup(calleeIdent->name);
-                if (!funcEntry || funcEntry->kind != SymbolType::FUNCTION) {
-                    error("Attempting to call undeclared or non-function identifier '" + calleeIdent->name + "'.");
-                    return "";
-                }
-                // TODO: Check argument types/count against function signature in SymbolTable
-                std::string returnType = funcEntry->typeName;
-                if (returnType.length() >= 2 && returnType.substr(returnType.length() - 2) == "()") {
-                    return returnType.substr(0, returnType.length() - 2);
-                }
-                 error("Invalid function signature stored for '" + calleeIdent->name + "'. Found: " + returnType);
-                 return "";
-            } else if (MemberAccessExpr* memberCall = dynamic_cast<MemberAccessExpr*>(call->callee.get())) {
-                 std::string objectType = typeOf(memberCall->object.get());
-                 if (objectType.empty()) return "";
-
-                 // --- Member Function Lookup ---
-                 SymbolEntry* speciesEntry = symbolTable_.lookup(objectType);
-                  if (!speciesEntry || speciesEntry->kind != SymbolType::SPECIES) {
-                      error("Cannot call member function '" + memberCall->member->name + "' on non-species type '" + objectType + "'.");
-                      return "";
-                  }
-                  // TODO: Enhance SymbolTable to store member function signatures.
-                  // Simulate lookup for known Pet methods
-                   if (objectType == "Pet") {
-                       if (memberCall->member->name == "setDetails") return "void";
-                       if (memberCall->member->name == "introduce") return "void";
-                       if (memberCall->member->name == "getAgeInDogYears") return "int";
-                   }
-
-                  error("Cannot find member function '" + memberCall->member->name + "' in species '" + objectType + "'.");
-                  return "";
-                 // --- End Member Function Lookup ---
-
-            } else {
-                 error("Invalid callee type for function call.");
-                 return "";
-            }
+        // Function Calls - Phiên bản tổng quát
+if (FunctionCallExpr* call = dynamic_cast<FunctionCallExpr*>(expr)) {
+    if (IdentifierExpr* calleeIdent = dynamic_cast<IdentifierExpr*>(call->callee.get())) {
+        SymbolEntry* funcEntry = symbolTable_.lookup(calleeIdent->name);
+        if (!funcEntry || funcEntry->kind != SymbolType::FUNCTION) {
+            error("Attempting to call undeclared or non-function identifier '" + calleeIdent->name + "'.");
+            return "";
         }
+        
+        // TODO: Check argument types/count against function signature in SymbolTable
+        std::string returnType = funcEntry->typeName;
+        if (returnType.length() >= 2 && returnType.substr(returnType.length() - 2) == "()") {
+            return returnType.substr(0, returnType.length() - 2);
+        }
+        
+        error("Invalid function signature stored for '" + calleeIdent->name + "'. Found: " + returnType);
+        return "";
+    } 
+    else if (MemberAccessExpr* memberCall = dynamic_cast<MemberAccessExpr*>(call->callee.get())) {
+        std::string objectType = typeOf(memberCall->object.get());
+        if (objectType.empty()) return "";
+        
+        // --- Member Function Lookup ---
+        SymbolEntry* speciesEntry = symbolTable_.lookup(objectType);
+        if (!speciesEntry || speciesEntry->kind != SymbolType::SPECIES) {
+            error("Cannot call member function '" + memberCall->member->name + "' on non-species type '" + objectType + "'.");
+            return "";
+        }
+        
+        // Tìm phương thức trong species
+        if (symbolTable_.hasSpeciesMember(objectType, memberCall->member->name)) {
+            return symbolTable_.getSpeciesMemberType(objectType, memberCall->member->name);
+        }
+        
+        error("Cannot find member function '" + memberCall->member->name + "' in species '" + objectType + "'.");
+        return "";
+        // --- End Member Function Lookup ---
+    } 
+    else {
+        error("Invalid callee type for function call.");
+        return "";
+    }
+}
 
         // Assignment (is also an expression)
          if (AssignmentStmt* assign = dynamic_cast<AssignmentStmt*>(expr)) {
@@ -362,36 +436,53 @@ private:
         if (!symbolTable_.define(node->name, node->name, SymbolType::SPECIES)) {
             error("Species '" + node->name + "' already defined in this scope.");
         }
+        
         std::string previousSpeciesName = currentSpeciesName_;
         currentSpeciesName_ = node->name; // Set current species context
-
+        
+        // Thiết lập context trong symbol table để kiểm tra quyền truy cập
+        symbolTable_.setCurrentSpeciesContext(node->name);
+        
         symbolTable_.enterScope(); // Enter species member scope
-        // TODO: Define members in the symbol table here, associated with the species
-        // First pass: define members before visiting methods that might use them
+        
+        // First pass: define members in the symbol table
         for (const auto& section : node->sections) {
-             if (!section->block) continue;
-             for (const auto& stmt : section->block->statements) {
-                 if(auto* varDecl = dynamic_cast<VariableDeclStmt*>(stmt.get())) {
-                      // Simulate defining member variable
-                       if (!symbolTable_.define(varDecl->varName, varDecl->typeName, SymbolType::VARIABLE)) {
-                            error("Member variable '" + varDecl->varName + "' already declared in species '" + node->name +"'.");
-                       }
-                  } else if (auto* funcDef = dynamic_cast<FunctionDefStmt*>(stmt.get())) {
-                        // Simulate defining member function
-                         if (!symbolTable_.define(funcDef->name, funcDef->returnType + "()", SymbolType::FUNCTION)) {
-                             error("Method '" + funcDef->name + "' already declared in species '" + node->name +"'.");
-                         }
-                  }
-             }
+            if (!section) continue;
+            
+            // Lấy visibility từ section
+            Visibility visibility = Visibility::DEFAULT;
+            if (auto* visBlock = dynamic_cast<VisibilityBlockStmt*>(section.get())) {
+                visibility = static_cast<Visibility>(visBlock->visibility);
+            }
+            
+            if (!section->block) continue;
+            
+            for (const auto& stmt : section->block->statements) {
+                if (auto* varDecl = dynamic_cast<VariableDeclStmt*>(stmt.get())) {
+                    if (!symbolTable_.define(varDecl->varName, varDecl->typeName, 
+                                           SymbolType::VARIABLE, visibility, node->name)) {
+                        error("Member variable '" + varDecl->varName + "' already declared in species '" + node->name + "'.");
+                    }
+                } else if (auto* funcDef = dynamic_cast<FunctionDefStmt*>(stmt.get())) {
+                    // Lưu thông tin method với return type
+                    if (!symbolTable_.define(funcDef->name, funcDef->returnType + "()", 
+                                          SymbolType::FUNCTION, visibility, node->name)) {
+                        error("Method '" + funcDef->name + "' already declared in species '" + node->name + "'.");
+                    }
+                }
+            }
         }
-
-        // Second pass: visit sections to analyze method bodies etc.
+        
+        // Second pass: visit sections để phân tích method bodies
         for (const auto& section : node->sections) {
             visit(section.get());
         }
+        
         symbolTable_.exitScope(); // Exit species scope
-
-        currentSpeciesName_ = previousSpeciesName; // Restore outer context
+        
+        // Khôi phục context trước đó
+        symbolTable_.setCurrentSpeciesContext(previousSpeciesName);
+        currentSpeciesName_ = previousSpeciesName;
     }
 
     void visitVisibilityBlock(VisibilityBlockStmt* node) {

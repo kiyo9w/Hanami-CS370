@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <map>
 #include <iomanip> // For json pretty printing
+#include <regex>
+
 
 #include "parser.h"
 #include "../common/token.h" // Includes Token struct and TokenType enum
@@ -48,6 +50,7 @@ TokenType stringToTokenType(const std::string& typeStr) {
 }
 
 // Function to read tokens from the specified file format
+// Function to read tokens from the specified file format
 std::vector<Token> readTokensFromFile(const std::string& filename) {
     std::ifstream inFile(filename);
     if (!inFile) {
@@ -66,6 +69,7 @@ std::vector<Token> readTokensFromFile(const std::string& filename) {
         int tokenLine = 0;
         int tokenColumn = 0;
 
+        // Đọc loại token (như "STYLE", "IDENTIFIER", "STRING", v.v.)
         ss >> tokenTypeStr;
         if (ss.fail()) {
             std::cerr << "Warning: Failed to read token type on line " << currentLineNum << " of " << filename << std::endl;
@@ -74,87 +78,46 @@ std::vector<Token> readTokensFromFile(const std::string& filename) {
 
         TokenType type = stringToTokenType(tokenTypeStr);
 
-        // Check if a lexeme is expected for this token type
+        // Đọc lexeme nếu token là loại cần lexeme
         if (type == TokenType::IDENTIFIER || type == TokenType::NUMBER || 
-            type == TokenType::STRING || type == TokenType::STYLE_INCLUDE ||
-            type == TokenType::ERROR // Error tokens might have a lexeme
-           ) {
-            // Read the rest of the line up to the line/column numbers
-            std::string remainingPart;
-            // Use peek to check if next char is quote for strings
+            type == TokenType::STRING || type == TokenType::STYLE_INCLUDE) {
+            // Đối với STRING và STYLE_INCLUDE, lexeme có thể được bao quanh bởi dấu ngoặc kép
             char nextChar = ss.peek();
-            while(isspace(nextChar)) { // Skip leading whitespace before lexeme
-                 ss.ignore();
-                 nextChar = ss.peek();
+            while(isspace(nextChar)) {
+                ss.ignore();
+                nextChar = ss.peek();
             }
-
-            if (type == TokenType::STRING && nextChar == '"') {
-                ss >> std::quoted(lexeme); // Read quoted string lexeme
+            
+            if (type == TokenType::STRING || type == TokenType::STYLE_INCLUDE) {
+                if (nextChar == '"') {
+                    ss >> std::quoted(lexeme); // Đọc chuỗi trong dấu ngoặc kép
+                } else {
+                    ss >> lexeme; // Đọc bình thường nếu không có dấu ngoặc kép
+                }
             } else {
-
-                if (type == TokenType::NUMBER) {
-                    ss >> lexeme; // lấy toàn bộ phần số còn lại
-                }
-
-                else {
-                 // Read until the next number (start of line/column)
-                 std::string word;
-                 // Capture potential multi-word lexemes or paths
-                 while (ss >> word && !isdigit(word[0])) { 
-                    lexeme += (lexeme.empty() ? "" : " ") + word;
-                 }
-                 // Put the digit back if we read it accidentally
-                 if (isdigit(word[0])) {
-                    for (char c : word) ss.putback(c);
-                 }
-                 // Trim trailing space if any
-                 if (!lexeme.empty() && isspace(lexeme.back())) {
-                    lexeme.pop_back();
-                 }
-                }
+                ss >> lexeme; // Đọc lexeme thông thường cho IDENTIFIER hoặc NUMBER
             }
-            if (ss.fail() && !(type == TokenType::ERROR && lexeme.empty())) { // Allow empty lexeme for some errors
-                 std::cerr << "Warning: Failed to read lexeme for " << tokenTypeStr << " on line " << currentLineNum << std::endl;
-                 // Decide whether to skip or create an error token
-                 continue; 
+            
+            if (ss.fail()) {
+                std::cerr << "Warning: Failed to read lexeme for " << tokenTypeStr << " on line " << currentLineNum << std::endl;
+                continue;
             }
-        } else {
-           // Peek to see if there *is* a lexeme unexpectedly (e.g. if lexer output format is wrong)
-           std::string potentialLexemePart; 
-           std::streampos beforeRead = ss.tellg();
-           ss >> potentialLexemePart;
-           if (!ss.fail() && !isdigit(potentialLexemePart[0])){
-                 std::cerr << "Warning: Unexpected lexeme part '" << potentialLexemePart << "' found for token type " << tokenTypeStr << " on line " << currentLineNum << std::endl;
-                 // Put it back, try to continue reading line/col
-                  ss.seekg(beforeRead); 
-           } else if (!ss.fail() && isdigit(potentialLexemePart[0])) {
-                 // This was the line number, put it back
-                 ss.seekg(beforeRead); 
-    } else {
-               // Reset fail state if we just hit end of line after type
-               ss.clear(); 
-               ss.seekg(beforeRead);
-           }
         }
 
-        // Read line and column number
+        // Đọc số dòng và số cột
         ss >> tokenLine >> tokenColumn;
         if (ss.fail()) {
             std::cerr << "Warning: Failed to read line/column numbers for token on line " << currentLineNum << " of " << filename << std::endl;
-            continue; // Skip this token
+            continue;
         }
 
         tokens.push_back({type, lexeme, tokenLine, tokenColumn});
     }
 
-    if (tokens.empty() || tokens.back().type != TokenType::EOF_TOKEN) {
-         std::cerr << "Warning: Token stream did not end with EOF_TOKEN." << std::endl;
-         // Optionally add an EOF token if necessary for the parser
-         // tokens.push_back({TokenType::EOF_TOKEN, "", currentLineNum, 1});
-    }
-
     return tokens;
 }
+
+
 
 
 int main(int argc, char* argv[]) {
