@@ -267,49 +267,58 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
 // expressionStatement -> expression SEMICOLON ;
 std::unique_ptr<Statement> Parser::parseVariableDeclarationOrExprStmt() {
     // Peek ahead to differentiate based on the sequence: TYPE NAME [= or ;]
-    if (check(TokenType::IDENTIFIER) && tokens[current + 1].type == TokenType::IDENTIFIER) {
-         // Potential variable declaration like "int x" or "Rose g"
-         // Check if the third token is ASSIGN or SEMICOLON
-         if (current + 2 < tokens.size()) {
-             TokenType thirdTokenType = tokens[current + 2].type;
-             if (thirdTokenType == TokenType::ASSIGN || thirdTokenType == TokenType::SEMICOLON) {
-                 // Looks like a variable declaration
-                 Token typeName = advance(); // Consume type
-                 Token varName = advance(); // Consume name
-                 std::unique_ptr<Expression> initializer = nullptr;
-                 if (match({TokenType::ASSIGN})) {
-                     initializer = parseExpression();
-                 }
-                 consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
-                 return std::make_unique<VariableDeclStmt>(typeName.lexeme, varName.lexeme, std::move(initializer));
-             }
-              // Handle cases like `std::string userName;` (IDENTIFIER::IDENTIFIER IDENTIFIER ;)
-              // Note: The first identifier ('std') was consumed on line 280. Let's call it 'typePart1'
-              Token typePart1 = previous(); // Get the 'std' token that was consumed
-              if (typePart1.lexeme == "std" && 
-                      check(TokenType::SCOPE_RESOLUTION) && 
-                      tokens[current + 1].type == TokenType::IDENTIFIER &&
-                      tokens[current + 2].type == TokenType::IDENTIFIER &&
-                      tokens[current + 3].type == TokenType::SEMICOLON) {
-                 
-                 consume(TokenType::SCOPE_RESOLUTION, "Expect '::'.");
-                 Token typeNamePart2 = consume(TokenType::IDENTIFIER, "Expect type name after '::'.");
-                 Token varName = consume(TokenType::IDENTIFIER, "Expect variable name.");
-                 std::string fullTypeName = "std::" + typeNamePart2.lexeme;
-
-                 std::unique_ptr<Expression> initializer = nullptr;
-                 if (match({TokenType::ASSIGN})) {
-                     initializer = parseExpression();
-                 }
-                 consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
-                 return std::make_unique<VariableDeclStmt>(fullTypeName, varName.lexeme, std::move(initializer));
-             } 
-         }
+    if (check(TokenType::IDENTIFIER)) {
+        // Case 1: Handle std::string structure
+        if (peek().lexeme == "std" && 
+            current + 3 < tokens.size() &&
+            tokens[current + 1].type == TokenType::SCOPE_RESOLUTION &&
+            tokens[current + 2].type == TokenType::IDENTIFIER &&
+            tokens[current + 3].type == TokenType::IDENTIFIER) {
+            
+            Token stdToken = advance(); // Consume 'std'
+            consume(TokenType::SCOPE_RESOLUTION, "Expect '::'.");
+            Token typeNamePart2 = consume(TokenType::IDENTIFIER, "Expect type name after '::'.");
+            Token varName = consume(TokenType::IDENTIFIER, "Expect variable name.");
+            
+            // Important: Use "string" instead of "std::string" for semantic analyzer
+            // But keep track of the full type name for future use if needed
+            std::string actualTypeName = "string";
+            
+            std::unique_ptr<Expression> initializer = nullptr;
+            if (match({TokenType::ASSIGN})) {
+                initializer = parseExpression();
+            }
+            
+            consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+            return std::make_unique<VariableDeclStmt>(actualTypeName, varName.lexeme, std::move(initializer));
+        }
+        
+        // Case 2: Regular variable declaration (type name)
+        if (current + 1 < tokens.size() && tokens[current + 1].type == TokenType::IDENTIFIER) {
+            // Additional check to see if it's actually a variable declaration
+            if (current + 2 < tokens.size()) {
+                TokenType thirdTokenType = tokens[current + 2].type;
+                if (thirdTokenType == TokenType::ASSIGN || thirdTokenType == TokenType::SEMICOLON) {
+                    // Looks like a variable declaration
+                    Token typeName = advance(); // Consume type
+                    Token varName = advance(); // Consume name
+                    
+                    std::unique_ptr<Expression> initializer = nullptr;
+                    if (match({TokenType::ASSIGN})) {
+                        initializer = parseExpression();
+                    }
+                    
+                    consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+                    return std::make_unique<VariableDeclStmt>(typeName.lexeme, varName.lexeme, std::move(initializer));
+                }
+            }
+        }
     }
     
     // If it doesn't match the variable declaration pattern, parse it as an expression statement.
     return parseExpressionStatement();
 }
+
 
 
 // branchStmt -> BRANCH LEFT_PAREN expression RIGHT_PAREN blockStmt (ELSE BRANCH LEFT_PAREN expression RIGHT_PAREN blockStmt)* (ELSE blockStmt)? ;
