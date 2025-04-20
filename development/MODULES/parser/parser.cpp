@@ -146,9 +146,16 @@ std::unique_ptr<Statement> Parser::parseDeclaration() {
 std::unique_ptr<Statement> Parser::parseStatement() {
     if (match({TokenType::LEFT_BRACE})) return parseBlock();
     if (match({TokenType::BRANCH})) return parseBranchStatement();
-    if (match({TokenType::BLOOM})) return parseIOStatement(TokenType::BLOOM);
-    if (match({TokenType::WATER})) return parseIOStatement(TokenType::WATER);
+    if (match({TokenType::BLOOM, TokenType::WATER})) {
+        return parseIOStatement(previous().type); // Pass BLOOM or WATER
+    }
     if (match({TokenType::BLOSSOM})) return parseReturnStatement();
+    if (match({TokenType::WHILE})) {
+        return parseWhileStatement();
+    }
+    if (match({TokenType::FOR})) {
+        return parseForStatement();
+    }
 
     // This handles variable declarations, assignments, and function calls
     return parseVariableDeclarationOrExprStmt(); 
@@ -579,4 +586,48 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
     // If none of the above match, it's an error.
     error(peek(), "Expect expression.");
     return nullptr; // Unreachable due to error throw
+}
+
+std::unique_ptr<Statement> Parser::parseWhileStatement() {
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
+    auto condition = parseExpression();
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after while condition.");
+    auto body = parseBlock();
+    return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+}
+
+std::unique_ptr<Statement> Parser::parseForStatement() {
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
+
+    std::unique_ptr<Statement> initializer;
+    if (match({TokenType::SEMICOLON})) {
+        initializer = nullptr; // No initializer
+    } else if (match({TokenType::IDENTIFIER})) { // Check if it looks like a var decl
+         // Need to backtrack or parse more carefully
+         // Assuming var decl starts with IDENTIFIER (type)
+         // This is simplified - Hanami might not require type keyword here
+         current--; // Backtrack IDENTIFIER
+         initializer = parseVariableDeclarationOrExprStmt(); // Handles var decl or expr
+    } else {
+        initializer = parseExpressionStatement(); // Treat as expression
+        // Note: parseVariableDeclarationOrExprStmt handles semicolon consumption
+        // Need explicit consume here if parseExpressionStatement is used
+        // consume(TokenType::SEMICOLON, "Expect ';' after for loop initializer.");
+    }
+
+    std::unique_ptr<Expression> condition;
+    if (!check(TokenType::SEMICOLON)) {
+        condition = parseExpression();
+    }
+    consume(TokenType::SEMICOLON, "Expect ';' after for loop condition.");
+
+    std::unique_ptr<Expression> increment;
+    if (!check(TokenType::RIGHT_PAREN)) {
+        increment = parseExpression();
+    }
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    auto body = parseBlock();
+
+    return std::make_unique<ForStmt>(std::move(initializer), std::move(condition), std::move(increment), std::move(body));
 }

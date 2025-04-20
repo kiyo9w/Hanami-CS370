@@ -65,6 +65,9 @@ protected:
     virtual std::string visitBranch(BranchStmt* node) = 0;
     virtual std::string visitIO(IOStmt* node) = 0;
     
+    virtual std::string visitWhileStmt(WhileStmt* node) = 0;
+    virtual std::string visitForStmt(ForStmt* node) = 0;
+    
     virtual std::string visitIdentifierExpr(IdentifierExpr* node) = 0;
     virtual std::string visitNumberLiteralExpr(NumberLiteralExpr* node) = 0;
     virtual std::string visitStringLiteralExpr(StringLiteralExpr* node) = 0;
@@ -89,6 +92,9 @@ protected:
          if (auto* p = dynamic_cast<ExpressionStmt*>(node)) return visitExpressionStmt(p);
          if (auto* p = dynamic_cast<BranchStmt*>(node)) return visitBranch(p);
          if (auto* p = dynamic_cast<IOStmt*>(node)) return visitIO(p);
+         
+         if (auto* p = dynamic_cast<WhileStmt*>(node)) return visitWhileStmt(p);
+         if (auto* p = dynamic_cast<ForStmt*>(node)) return visitForStmt(p);
          
          // Expressions (need to handle them within statements/other expressions)
          if (auto* p = dynamic_cast<IdentifierExpr*>(node)) return visitIdentifierExpr(p);

@@ -107,7 +107,7 @@ private:
     }
     
     std::string visitGardenDecl(GardenDeclStmt* node) override { 
-        return "// Garden: " + node->name + "\n"; // Namespace or just comment
+        return "// Garden: " + node->name + " (namespace omitted for simplicity)\n"; 
     }
 
     std::string visitSpeciesDecl(SpeciesDeclStmt* node) override {
@@ -130,7 +130,7 @@ private:
         std::string code = "";
         switch(node->visibility) {
             case TokenType::OPEN: code += getIndent() + "public:\n"; break;
-            case TokenType::GUARDED: code += getIndent() + "public:\n"; break; // Treat guarded as public for now
+            case TokenType::GUARDED: code += getIndent() + "protected:\n"; break; 
             case TokenType::HIDDEN: code += getIndent() + "private:\n"; break;
             default: break;
         }
@@ -301,5 +301,39 @@ private:
       std::string visitAssignmentStmt(AssignmentStmt* node) override {
           return dispatchExpr(node->left.get()) + " = " + dispatchExpr(node->right.get());
       }
+
+    std::string visitWhileStmt(WhileStmt* node) override {
+        std::string code = getIndent() + "while (";
+        if (node->condition) code += dispatchExpr(node->condition.get());
+        code += ") {\n";
+        indentLevel++;
+        if (node->body) code += visitBlock(node->body.get());
+        indentLevel--;
+        code += getIndent() + "}\n";
+        return code;
+    }
+
+    std::string visitForStmt(ForStmt* node) override {
+        std::string code = getIndent() + "for (";
+        if (node->initializer) {
+            // Need to handle potential semicolon from VariableDecl
+            std::string initStr = dispatch(node->initializer.get());
+            // Remove trailing newline and potentially semicolon
+            initStr.erase(initStr.find_last_not_of(" \n\r\t;") + 1);
+            initStr.erase(0, initStr.find_first_not_of(" \n\r\t"));
+            code += initStr + "; ";
+        } else {
+            code += "; ";
+        }
+        if (node->condition) code += dispatchExpr(node->condition.get());
+        code += "; ";
+        if (node->increment) code += dispatchExpr(node->increment.get());
+        code += ") {\n";
+        indentLevel++;
+        if (node->body) code += visitBlock(node->body.get());
+        indentLevel--;
+        code += getIndent() + "}\n";
+        return code;
+    }
 
 }; 

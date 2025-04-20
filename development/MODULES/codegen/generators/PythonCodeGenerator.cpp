@@ -313,4 +313,51 @@ private:
           return dispatchExpr(node->left.get()) + " = " + dispatchExpr(node->right.get());
       }
 
+    std::string visitWhileStmt(WhileStmt* node) override {
+        std::string code = getIndent() + "while ";
+        if (node->condition) code += dispatchExpr(node->condition.get());
+        code += ":\n";
+        indentLevel++;
+        std::string bodyCode = "";
+        if (node->body) bodyCode = visitBlock(node->body.get());
+        if (bodyCode.empty()) { // Python requires a body
+            code += getIndent() + "pass\n";
+        } else {
+            code += bodyCode;
+        }
+        indentLevel--;
+        return code;
+    }
+
+    std::string visitForStmt(ForStmt* node) override {
+        // Python's for loop is different (for item in iterable)
+        // Translate standard C-style for loop to a while loop
+        std::string code = "";
+        // 1. Initializer
+        if (node->initializer) {
+            code += dispatch(node->initializer.get());
+        }
+        // 2. While condition
+        code += getIndent() + "while (";
+        if (node->condition) code += dispatchExpr(node->condition.get());
+        else code += "True"; // Loop forever if no condition
+        code += "):\n";
+        indentLevel++;
+        // 3. Body
+        std::string bodyCode = "";
+        if (node->body) bodyCode = visitBlock(node->body.get());
+        // 4. Increment (append at the end of the body)
+        if (node->increment) {
+            bodyCode += getIndent() + dispatchExpr(node->increment.get()) + "\n";
+        }
+
+        if (bodyCode.empty()) {
+            code += getIndent() + "pass\n";
+        } else {
+            code += bodyCode;
+        }
+        indentLevel--;
+        return code;
+    }
+
 }; 
