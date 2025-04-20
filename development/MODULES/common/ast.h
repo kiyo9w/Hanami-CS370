@@ -355,5 +355,41 @@ struct IOStmt : public Statement {
     }
 };
 
+struct WhileStmt : public Statement {
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<BlockStmt> body;
+    WhileStmt(std::unique_ptr<Expression> cond, std::unique_ptr<BlockStmt> b)
+        : condition(std::move(cond)), body(std::move(b)) {}
+    nlohmann::json toJson() const override {
+        nlohmann::json j;
+        j["node_type"] = "WhileStmt";
+        j["condition"] = condition ? condition->toJson() : nullptr;
+        j["body"] = body ? body->toJson() : nullptr;
+        return j;
+    }
+};
+
+// Optional: ForStmt (more complex)
+struct ForStmt : public Statement {
+    std::unique_ptr<Statement> initializer; // Can be VariableDeclStmt or ExpressionStmt
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<Expression> increment;
+    std::unique_ptr<BlockStmt> body;
+
+    ForStmt(std::unique_ptr<Statement> init, std::unique_ptr<Expression> cond,
+            std::unique_ptr<Expression> incr, std::unique_ptr<BlockStmt> b)
+        : initializer(std::move(init)), condition(std::move(cond)),
+          increment(std::move(incr)), body(std::move(b)) {}
+
+    nlohmann::json toJson() const override {
+        nlohmann::json j;
+        j["node_type"] = "ForStmt";
+        j["initializer"] = initializer ? initializer->toJson() : nullptr;
+        j["condition"] = condition ? condition->toJson() : nullptr;
+        j["increment"] = increment ? increment->toJson() : nullptr;
+        j["body"] = body ? body->toJson() : nullptr;
+        return j;
+    }
+};
 
 #endif // AST_H 

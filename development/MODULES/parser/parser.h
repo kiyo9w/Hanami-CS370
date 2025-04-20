@@ -47,6 +47,8 @@ private:
     std::unique_ptr<Statement> parseIOStatement(TokenType ioType);
     std::unique_ptr<Statement> parseReturnStatement(); // blossom
     std::unique_ptr<Statement> parseExpressionStatement();
+    std::unique_ptr<Statement> parseWhileStatement();
+    std::unique_ptr<Statement> parseForStatement();
 
     // Expression parsing (following operator precedence - types from common/ast.h)
     std::unique_ptr<Expression> parseExpression();

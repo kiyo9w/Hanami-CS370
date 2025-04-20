@@ -205,6 +205,25 @@ std::unique_ptr<Statement> statementFromJson(const nlohmann::json& j) {
                   }
                   return ioStmt;
              }
+             if (node_type == "WhileStmt") {
+                 auto condition = expressionFromJson(j.at("condition"));
+                 auto body = blockStmtFromJson(j.at("body"));
+                 return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+             }
+              if (node_type == "ForStmt") {
+                 std::unique_ptr<Statement> initializer = nullptr;
+                 if (!j.value("initializer", nlohmann::json()).is_null()) {
+                      // Initializer could be VarDecl or ExprStmt
+                      initializer = statementFromJson(j.at("initializer"));
+                 }
+                 auto condition = expressionFromJson(j.at("condition"));
+                 std::unique_ptr<Expression> increment = nullptr;
+                  if (!j.value("increment", nlohmann::json()).is_null()) {
+                     increment = expressionFromJson(j.at("increment"));
+                 }
+                 auto body = blockStmtFromJson(j.at("body"));
+                 return std::make_unique<ForStmt>(std::move(initializer), std::move(condition), std::move(increment), std::move(body));
+             }
         // --- Add other statement types --- 
          else if (node_type == "Statement") { // Base class
               std::cerr << "Warning: Deserializing base 'Statement' node type." << std::endl;
