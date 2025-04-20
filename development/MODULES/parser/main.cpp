@@ -11,12 +11,13 @@
 
 #include "parser.h"
 #include "../common/token.h" // Includes Token struct and TokenType enum
-#include "../common/ast.h"   // Explicitly include AST definitions needed by main
 #include "../common/json.hpp" // For JSON serialization
+#include "../common/utils.h" // Include for stringToTokenType
 
 // Helper function to convert string representation of TokenType back to enum
 // NOTE: This needs to be kept in sync with the TokenType enum in token.h
 //       and the strings used by the lexer's output.
+/*
 std::map<std::string, TokenType> tokenTypeMap = {
     {"GARDEN", TokenType::GARDEN}, {"SPECIES", TokenType::SPECIES}, {"OPEN", TokenType::OPEN}, 
     {"HIDDEN", TokenType::HIDDEN}, {"GUARDED", TokenType::GUARDED}, {"GROW", TokenType::GROW}, 
@@ -48,6 +49,7 @@ TokenType stringToTokenType(const std::string& typeStr) {
         return TokenType::ERROR; // Or throw an exception
     }
 }
+*/
 
 // Function to read tokens from the specified file format
 // Function to read tokens from the specified file format

@@ -1,7 +1,8 @@
 #include "json_deserializer.h"
-#include "ast.h" // Need full AST definitions here
 #include <stdexcept>
 #include <iostream>
+#include "ast.h"
+#include "utils.h"
 
 // --- JSON Deserialization Implementation --- 
 
@@ -22,7 +23,8 @@ std::unique_ptr<Expression> expressionFromJson(const nlohmann::json& j) {
         } else if (node_type == "BinaryOpExpr") {
             auto left = expressionFromJson(j.at("left"));
             auto right = expressionFromJson(j.at("right"));
-            TokenType op = static_cast<TokenType>(j.at("operator").get<int>()); 
+            std::string opStr = j.at("operator").get<std::string>();
+            TokenType op = stringToTokenType(opStr); 
             return std::make_unique<BinaryOpExpr>(op, std::move(left), std::move(right));
         } else if (node_type == "FunctionCallExpr") {
             auto callee = expressionFromJson(j.at("callee"));
@@ -87,7 +89,8 @@ std::unique_ptr<VisibilityBlockStmt> visibilityBlockFromJson(const nlohmann::jso
      if (!j.is_object() || !j.contains("node_type") || j.at("node_type") != "VisibilityBlockStmt") {
          throw std::runtime_error("Invalid JSON for VisibilityBlockStmt deserialization.");
      }
-     TokenType visibility = static_cast<TokenType>(j.at("visibility").get<int>());
+     std::string visStr = j.at("visibility").get<std::string>();
+     TokenType visibility = stringToTokenType(visStr);
      auto block = blockStmtFromJson(j.at("block"));
      return std::make_unique<VisibilityBlockStmt>(visibility, std::move(block));
 }
@@ -190,8 +193,10 @@ std::unique_ptr<Statement> statementFromJson(const nlohmann::json& j) {
                   return branchStmt;
             }
              if (node_type == "IOStmt") {
-                  TokenType ioType = static_cast<TokenType>(j.at("ioType").get<int>());
-                  TokenType direction = static_cast<TokenType>(j.at("direction").get<int>());
+                  std::string ioTypeStr = j.at("ioType").get<std::string>();
+                  std::string directionStr = j.at("direction").get<std::string>();
+                  TokenType ioType = stringToTokenType(ioTypeStr);
+                  TokenType direction = stringToTokenType(directionStr);
                   auto ioStmt = std::make_unique<IOStmt>(ioType, direction);
                   if (j.contains("expressions") && j.at("expressions").is_array()) {
                       for (const auto& exprJson : j["expressions"]) {

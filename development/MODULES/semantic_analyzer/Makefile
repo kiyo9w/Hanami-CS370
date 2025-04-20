@@ -14,7 +14,7 @@ TARGET = semantic_analyzer_executable
 COMMON_DIR = ../common
 
 # Common objects
-COMMON_OBJS = $(COMMON_DIR)/json_deserializer.o
+COMMON_OBJS = $(COMMON_DIR)/json_deserializer.o $(COMMON_DIR)/utils.o
 
 # Detect OS
 ifeq ($(OS),Windows_NT)
@@ -52,4 +52,7 @@ else
 	$(RM) *.o $(TARGET) ../output/*.ir $(COMMON_OBJS)
 endif
 
+run: $(TARGET)
+	./$(TARGET)
+	
 .PHONY: all clean

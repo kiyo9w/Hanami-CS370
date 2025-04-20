@@ -26,11 +26,14 @@ enum class Visibility { PUBLIC = 2, PRIVATE = 3, PROTECTED = 4, DEFAULT = 0 };
 
 struct SymbolEntry {
     std::string name;
-    std::string typeName; // e.g., "int", "void", "Rose"
+    std::string typeName; // e.g., "int", "void", "Rose", or "int()" for functions before enhancement
     SymbolType kind = SymbolType::UNKNOWN;
     int scopeLevel = 0;
     Visibility visibility = Visibility::DEFAULT;
     std::string parentSpecies = ""; // Tên của species chứa member này (nếu là member)
+    
+    // For functions/methods: store parameter types
+    std::vector<std::string> parameterTypes; 
     // Add more info: is_param, is_member, visibility, etc.
 }; 
 
@@ -59,25 +62,42 @@ public:
 
     // Define a symbol in the current scope
     bool define(const std::string& name, const std::string& type, SymbolType kind, 
-                Visibility visibility = Visibility::DEFAULT, const std::string& parentSpecies = "") {
+                Visibility visibility = Visibility::DEFAULT, const std::string& parentSpecies = "",
+                const std::vector<std::string>& paramTypes = {}) {
         if (scopes_.empty()) return false; // Should not happen
         
         // Check if already defined in the *current* scope
         auto& currentScope = scopes_.back();
-        if (currentScope.count(name)) {
-            return false; // Already defined in this scope
+        // For non-members, check current scope. For members, check speciesMembers_
+        bool alreadyDefined = false;
+        if (!parentSpecies.empty()) {
+            if (speciesMembers_.count(parentSpecies) && speciesMembers_[parentSpecies].count(name)) {
+                alreadyDefined = true;
+            }
+        } else {
+            if (currentScope.count(name)) {
+                 alreadyDefined = true;
+            }
+        }
+
+        if (alreadyDefined) {
+            return false; // Already defined in this scope or species
         }
         
         SymbolEntry entry = {name, type, kind, currentLevel_};
         entry.visibility = visibility;
         entry.parentSpecies = parentSpecies;
+        if (kind == SymbolType::FUNCTION) {
+            entry.parameterTypes = paramTypes;
+        }
         
-        currentScope[name] = entry;
+        // Add to current scope (for local lookup within methods/blocks)
+        currentScope[name] = entry; 
         
         // Nếu đây là một member của species, lưu vào speciesMembers_
         if (!parentSpecies.empty()) {
-            SpeciesMemberInfo memberInfo = {name, type, kind, visibility};
-            speciesMembers_[parentSpecies].push_back(memberInfo);
+            // Check if species map exists, if not create it (should exist if SpeciesDecl was processed)
+            speciesMembers_[parentSpecies][name] = entry; 
         }
         
         return true;
@@ -94,36 +114,48 @@ public:
         return nullptr; // Not found
     }
     
+    // Lookup a member within a specific species context
+    SymbolEntry* lookupMember(const std::string& memberName, const std::string& speciesName,
+                              const std::string& analysisContext) {
+        // Primarily look within the permanent species member storage
+        auto speciesIt = speciesMembers_.find(speciesName);
+        if (speciesIt != speciesMembers_.end()) {
+            auto& members = speciesIt->second;
+            auto memberIt = members.find(memberName);
+            if (memberIt != members.end()) {
+                // Found the member entry
+                SymbolEntry* entry = &memberIt->second; // Get pointer to the stored entry
+
+                // Check visibility
+                if (entry->visibility == Visibility::PUBLIC || analysisContext == speciesName) {
+                    return entry; // Found accessible member
+                } else {
+                    // Found but not accessible from this context
+                    return nullptr;
+                }
+            }
+        }
+        // Member not found in the species definition
+        return nullptr; 
+    }
+    
     int getCurrentLevel() const { return currentLevel_; }
     
-    // Kiểm tra xem species có member cụ thể không
-    bool hasSpeciesMember(const std::string& speciesName, const std::string& memberName) {
+    // Helper to check member existence and basic visibility 
+    // (Used before calling lookupMember to get the full entry)
+    bool hasAccessibleMember(const std::string& speciesName, const std::string& memberName, 
+                             const std::string& analysisContext) {
         auto it = speciesMembers_.find(speciesName);
         if (it != speciesMembers_.end()) {
-            for (const auto& member : it->second) {
-                if (member.name == memberName && 
-                    (member.visibility == Visibility::PUBLIC || 
-                     currentSpeciesContext_ == speciesName)) {
-                    return true;
-                }
+            const auto& members = it->second;
+            auto memberIt = members.find(memberName);
+            if (memberIt != members.end()) {
+                const auto& memberEntry = memberIt->second;
+                // Check visibility
+                return memberEntry.visibility == Visibility::PUBLIC || analysisContext == speciesName;
             }
         }
         return false;
-    }
-    
-    // Lấy kiểu dữ liệu của member
-    std::string getSpeciesMemberType(const std::string& speciesName, const std::string& memberName) {
-        auto it = speciesMembers_.find(speciesName);
-        if (it != speciesMembers_.end()) {
-            for (const auto& member : it->second) {
-                if (member.name == memberName && 
-                    (member.visibility == Visibility::PUBLIC || 
-                     currentSpeciesContext_ == speciesName)) {
-                    return member.type;
-                }
-            }
-        }
-        return "";
     }
     
     // Thiết lập context species hiện tại (dùng khi phân tích bên trong species)
@@ -131,21 +163,24 @@ public:
         currentSpeciesContext_ = speciesName;
     }
     
-    // Lấy tất cả các member của species
-    std::vector<SpeciesMemberInfo> getSpeciesMembers(const std::string& speciesName) {
+    // Get all member names for a species (could be useful for checks like unused members later)
+    std::vector<std::string> getMemberNames(const std::string& speciesName) {
         auto it = speciesMembers_.find(speciesName);
+        std::vector<std::string> names;
         if (it != speciesMembers_.end()) {
-            return it->second;
+            for(const auto& pair : it->second) {
+                names.push_back(pair.first);
+            }
         }
-        return {};
+        return names;
     }
 
 private:
     std::vector<std::map<std::string, SymbolEntry>> scopes_;
     int currentLevel_ = -1;
     
-    // Lưu trữ member của từng species
-    std::unordered_map<std::string, std::vector<SpeciesMemberInfo>> speciesMembers_;
+    // Store full SymbolEntry for members of each species, keyed by species name, then member name.
+    std::unordered_map<std::string, std::map<std::string, SymbolEntry>> speciesMembers_;
     
     // Species context hiện tại - dùng để kiểm tra quyền truy cập private/protected
     std::string currentSpeciesContext_ = "";
@@ -197,22 +232,6 @@ private:
         // Variables/Functions/Species instances
         if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr)) {
             SymbolEntry* entry = symbolTable_.lookup(ident->name);
-
-            // --- Member Lookup Enhancement ---
-            if (!entry && !currentSpeciesName_.empty()) {
-                 SymbolEntry* speciesEntry = symbolTable_.lookup(currentSpeciesName_);
-                 if (speciesEntry && speciesEntry->kind == SymbolType::SPECIES) {
-                      // TODO: Enhance SymbolTable to store members properly.
-                      // Simulating lookup: If 'name' or 'age' used inside 'Pet'.
-                      if (currentSpeciesName_ == "Pet" && (ident->name == "name")) return "string";
-                      if (currentSpeciesName_ == "Pet" && (ident->name == "age")) return "int";
-
-                       // If not found as a known member (simulated)
-                      error("Species '" + currentSpeciesName_ + "' has no member named '" + ident->name + "'.");
-                      return "";
-                 }
-            }
-            // --- End Member Lookup ---
 
             if (!entry) {
                 error("Undeclared identifier '" + ident->name + "' used in expression.");
@@ -269,124 +288,166 @@ private:
         }
 
         // Function Calls - Phiên bản tổng quát
-if (FunctionCallExpr* call = dynamic_cast<FunctionCallExpr*>(expr)) {
-    if (IdentifierExpr* calleeIdent = dynamic_cast<IdentifierExpr*>(call->callee.get())) {
-        SymbolEntry* funcEntry = symbolTable_.lookup(calleeIdent->name);
-        if (!funcEntry || funcEntry->kind != SymbolType::FUNCTION) {
-            error("Attempting to call undeclared or non-function identifier '" + calleeIdent->name + "'.");
-            return "";
+        if (FunctionCallExpr* call = dynamic_cast<FunctionCallExpr*>(expr)) {
+            if (IdentifierExpr* calleeIdent = dynamic_cast<IdentifierExpr*>(call->callee.get())) {
+                SymbolEntry* funcEntry = symbolTable_.lookup(calleeIdent->name);
+                if (!funcEntry || funcEntry->kind != SymbolType::FUNCTION) {
+                    error("Attempting to call undeclared or non-function identifier '" + calleeIdent->name + "'.");
+                    return "";
+                }
+                
+                // Check arguments
+                const auto& expectedParams = funcEntry->parameterTypes;
+                if (call->arguments.size() != expectedParams.size()) {
+                    error("Function '" + calleeIdent->name + "' expects " + std::to_string(expectedParams.size()) + 
+                          " arguments, but got " + std::to_string(call->arguments.size()) + ".");
+                    return ""; // Return empty type on error
+                }
+
+                for (size_t i = 0; i < expectedParams.size(); ++i) {
+                    std::string argType = typeOf(call->arguments[i].get());
+                    if (!argType.empty() && argType != expectedParams[i]) {
+                        error("Argument type mismatch in call to '" + calleeIdent->name + "'. Expected '" + 
+                              expectedParams[i] + "' for argument " + std::to_string(i+1) + ", but got '" + argType + "'.");
+                        // Continue checking other args, but overall call result is invalid
+                    }
+                }
+                
+                // Return the function's declared return type (now stored directly in typeName)
+                return funcEntry->typeName;
+            } 
+            else if (MemberAccessExpr* memberCall = dynamic_cast<MemberAccessExpr*>(call->callee.get())) {
+                std::string objectType = typeOf(memberCall->object.get());
+                if (objectType.empty()) return ""; // Error already reported
+                
+                std::string methodName = memberCall->member->name;
+ 
+                // --- Member Function Lookup & Argument Check ---
+                SymbolEntry* methodEntry = symbolTable_.lookupMember(methodName, objectType, currentSpeciesName_);
+
+                if (!methodEntry || methodEntry->kind != SymbolType::FUNCTION) {
+                    error("Cannot find accessible member function '" + methodName + "' in species '" + objectType + "'.");
+                    return "";
+                }
+
+                // Check arguments (similar to regular function call)
+                const auto& expectedParams = methodEntry->parameterTypes;
+                if (call->arguments.size() != expectedParams.size()) {
+                    error("Method '" + methodName + "' expects " + std::to_string(expectedParams.size()) +
+                          " arguments, but got " + std::to_string(call->arguments.size()) + ".");
+                    return ""; // Return empty type on error
+                }
+
+                for (size_t i = 0; i < expectedParams.size(); ++i) {
+                    std::string argType = typeOf(call->arguments[i].get());
+                    if (!argType.empty() && argType != expectedParams[i]) {
+                        error("Argument type mismatch in call to '" + methodName + "'. Expected '" +
+                              expectedParams[i] + "' for argument " + std::to_string(i+1) + ", but got '" + argType + "'.");
+                        // Continue checking other args
+                    }
+                }
+
+                // Return the method's declared return type
+                return methodEntry->typeName;
+                // --- End Member Function Lookup ---
+            } 
+            else {
+                error("Invalid callee type for function call.");
+                return "";
+            }
         }
-        
-        // TODO: Check argument types/count against function signature in SymbolTable
-        std::string returnType = funcEntry->typeName;
-        if (returnType.length() >= 2 && returnType.substr(returnType.length() - 2) == "()") {
-            return returnType.substr(0, returnType.length() - 2);
-        }
-        
-        error("Invalid function signature stored for '" + calleeIdent->name + "'. Found: " + returnType);
-        return "";
-    } 
-    else if (MemberAccessExpr* memberCall = dynamic_cast<MemberAccessExpr*>(call->callee.get())) {
-        std::string objectType = typeOf(memberCall->object.get());
-        if (objectType.empty()) return "";
-        
-        // --- Member Function Lookup ---
-        SymbolEntry* speciesEntry = symbolTable_.lookup(objectType);
-        if (!speciesEntry || speciesEntry->kind != SymbolType::SPECIES) {
-            error("Cannot call member function '" + memberCall->member->name + "' on non-species type '" + objectType + "'.");
-            return "";
-        }
-        
-        // Tìm phương thức trong species
-        if (symbolTable_.hasSpeciesMember(objectType, memberCall->member->name)) {
-            return symbolTable_.getSpeciesMemberType(objectType, memberCall->member->name);
-        }
-        
-        error("Cannot find member function '" + memberCall->member->name + "' in species '" + objectType + "'.");
-        return "";
-        // --- End Member Function Lookup ---
-    } 
-    else {
-        error("Invalid callee type for function call.");
-        return "";
-    }
-}
 
         // Assignment (is also an expression)
          if (AssignmentStmt* assign = dynamic_cast<AssignmentStmt*>(expr)) {
              // Type of assignment is the type of the right-hand side
              std::string rightType = typeOf(assign->right.get());
+             std::string leftType = "";
+
+             // Check if left side is assignable (L-value)
+             bool isLValue = false;
              // Check if left side is assignable (L-value) & type compatibility
              if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(assign->left.get())) {
                   SymbolEntry* entry = symbolTable_.lookup(ident->name);
-                   bool isMember = false;
-                    // Check if it's a member variable assignment within a method
-                    if(!entry && !currentSpeciesName_.empty()) {
-                         if(currentSpeciesName_ == "Pet" && (ident->name == "name" || ident->name == "age")){
-                             isMember = true;
-                             // Simulate getting member type
-                             entry = new SymbolEntry(); // Temporary for check
-                             entry->typeName = (ident->name == "name" ? "string" : "int");
-                         }
-                    }
-
-                  if (!entry) {
-                      error("Cannot assign to undeclared identifier '" + ident->name + "'.");
-                      if(isMember) delete entry; // Clean up temp entry
-                      return "";
-                  }
-                  if (!rightType.empty() && entry->typeName != rightType) {
-                       error("Type mismatch: Cannot assign value of type '" + rightType + "' to variable '" + ident->name + "' of type '" + entry->typeName + "'.");
-                       if(isMember) delete entry;
-                       return ""; // Return empty on type error
-                  }
-                  if(isMember) delete entry; // Clean up temp entry
-
+                   if (!entry) {
+                       error("Cannot assign to undeclared identifier '" + ident->name + "'.");
+                       return "";
+                   } else {
+                       // TODO: Check if variable is const
+                       isLValue = true; 
+                       leftType = entry->typeName;
+                   }
              } else if (MemberAccessExpr* member = dynamic_cast<MemberAccessExpr*>(assign->left.get())) {
-                  // TODO: Check member assignability and type
                   std::string objectType = typeOf(member->object.get());
-                  std::string memberType = "";
-                   // Simulate member type lookup
-                    if(objectType == "Pet"){
-                        if(member->member->name == "name") memberType = "string";
-                        if(member->member->name == "age") memberType = "int";
-                    }
-                  if (memberType.empty()) {
-                       error("Cannot find member variable '" + member->member->name + "' in species '" + objectType + "' for assignment.");
-                       return "";
-                  }
-                  if (!rightType.empty() && memberType != rightType) {
-                       error("Type mismatch: Cannot assign value of type '" + rightType + "' to member '" + member->member->name + "' of type '" + memberType + "'.");
-                       return "";
-                  }
+                  std::string memberName = member->member->name;
 
+                  if (!objectType.empty()) { // Only check member if object type is known
+                       SymbolEntry* speciesEntry = symbolTable_.lookup(objectType);
+                       if (speciesEntry && speciesEntry->kind == SymbolType::SPECIES) {
+                            // Use the proper SymbolTable method to lookup the member
+                            SymbolEntry* memberEntry = symbolTable_.lookupMember(memberName, objectType, currentSpeciesName_);
+
+                            if (memberEntry) {
+                                // Check if assigning to a method
+                                if (memberEntry->kind == SymbolType::FUNCTION) {
+                                    error("Cannot assign to method '" + memberName + "'.");
+                                    return ""; // Invalid assignment
+                                }
+                                // TODO: Check if member is const
+                                isLValue = true;
+                                leftType = memberEntry->typeName;
+                            } else {
+                                error("Cannot find accessible member variable '" + memberName + "' in species '" + objectType + "' for assignment.");
+                                return "";
+                            }
+                       } else {
+                             error("Cannot assign to member '" + memberName + "' of non-species type '" + objectType + "'.");
+                            return "";
+                       }
+                     }
              }
-             else {
-                 error("Invalid left-hand side for assignment.");
-                 return "";
+
+             // Perform checks if LHS is valid and types are known
+             if (!isLValue) {
+                  error("Invalid left-hand side for assignment.");
+                  return "";
+              }
+             
+             if (!leftType.empty() && !rightType.empty() && leftType != rightType) {
+                   error("Type mismatch: Cannot assign value of type '" + rightType + "' to L-value of type '" + leftType + "'.");
+                   return ""; // Return empty on type error
              }
-             return rightType; // Assignment expression evaluates to the assigned value's type
+             
+             return rightType; // Assignment expression evaluates to the assigned value's type (rhs)
          }
 
 
         // Member Access (e.g., g.member) - evaluation type
         if (MemberAccessExpr* memberAccess = dynamic_cast<MemberAccessExpr*>(expr)) {
             std::string objectType = typeOf(memberAccess->object.get());
-            if (objectType.empty()) return "";
+            if (objectType.empty()) return ""; // Error already reported
 
             SymbolEntry* speciesEntry = symbolTable_.lookup(objectType);
              if (!speciesEntry || speciesEntry->kind != SymbolType::SPECIES) {
                  error("Cannot access member '" + memberAccess->member->name + "' on non-species type '" + objectType + "'.");
                  return "";
              }
-             // TODO: Lookup member variable in SymbolTable species entry
-             // Simulate lookup
-              if (objectType == "Pet") {
-                  if (memberAccess->member->name == "name") return "string";
-                  if (memberAccess->member->name == "age") return "int";
-              }
+             
+             // Use the proper SymbolTable method to lookup the member
+             std::string memberName = memberAccess->member->name;
+             SymbolEntry* memberEntry = symbolTable_.lookupMember(memberName, objectType, currentSpeciesName_);
 
-            error("Cannot find member variable '" + memberAccess->member->name + "' in species '" + objectType + "'.");
+             if (memberEntry) {
+                  // Check if accessing a function like a variable
+                  if (memberEntry->kind == SymbolType::FUNCTION) {
+                       error("Cannot access method '" + memberName + "' like a variable. Use () to call.");
+                       return "";
+                  }
+                  // It's a variable, return its type
+                  return memberEntry->typeName;
+             } 
+
+            // Member not found or not accessible
+            error("Cannot find accessible member variable '" + memberName + "' in species '" + objectType + "'.");
             return "";
         }
 
@@ -465,8 +526,13 @@ if (FunctionCallExpr* call = dynamic_cast<FunctionCallExpr*>(expr)) {
                     }
                 } else if (auto* funcDef = dynamic_cast<FunctionDefStmt*>(stmt.get())) {
                     // Lưu thông tin method với return type
-                    if (!symbolTable_.define(funcDef->name, funcDef->returnType + "()", 
-                                          SymbolType::FUNCTION, visibility, node->name)) {
+                    // Collect parameter types
+                    std::vector<std::string> paramTypes;
+                    for (const auto& param : funcDef->parameters) {
+                        paramTypes.push_back(param.typeName);
+                    }
+                    if (!symbolTable_.define(funcDef->name, funcDef->returnType, 
+                                          SymbolType::FUNCTION, visibility, node->name, paramTypes)) {
                         error("Method '" + funcDef->name + "' already declared in species '" + node->name + "'.");
                     }
                 }
@@ -548,11 +614,25 @@ if (FunctionCallExpr* call = dynamic_cast<FunctionCallExpr*>(expr)) {
     void visitFunctionDef(FunctionDefStmt* node) {
           // If inside a species, the symbol was defined in visitSpeciesDecl first pass.
          // We still need to analyze the body.
-         bool isMethod = !currentSpeciesName_.empty();
+
+         // Collect parameter types
+         std::vector<std::string> paramTypes;
+         for (const auto& param : node->parameters) {
+             paramTypes.push_back(param.typeName);
+         }
 
          // Set context for return type checking
          std::string previousFunctionReturnType = currentFunctionReturnType_;
          currentFunctionReturnType_ = node->returnType;
+
+         // Define the function symbol if not already defined (e.g., if not a method)
+         // Store only return type in 'typeName', param types are separate
+         if (currentSpeciesName_.empty()) { // Only define if not a method (methods defined in visitSpeciesDecl)
+             if (!symbolTable_.define(node->name, node->returnType, SymbolType::FUNCTION, Visibility::DEFAULT, "", paramTypes)) {
+                 error("Function '" + node->name + "' already defined in this scope.");
+                 // Even if redefined, continue analysis of the body with the new definition's scope
+             }
+         }
 
          symbolTable_.enterScope(); // Enter function parameter/body scope
          // Define parameters

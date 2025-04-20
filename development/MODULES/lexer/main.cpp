@@ -7,6 +7,7 @@
 #include "../common/token.h"
 #include "lexer.h" // Include Lexer class definition
 #include <map>
+#include "../common/utils.h"
 
 // Print token information in a readable format
 void printToken(const Token& token) {
