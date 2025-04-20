@@ -8,6 +8,7 @@
 #include <iostream>
 #include "json.hpp" // Include json here as nodes use it
 #include <functional> // Needed for Parser helpers if they stay here, maybe move later
+#include "utils.h" // Include for tokenTypeToString
 
 #include "token.h" // Depends on TokenType
 
@@ -93,8 +94,8 @@ struct BinaryOpExpr : public Expression {
      nlohmann::json toJson() const override {
         nlohmann::json j;
         j["node_type"] = "BinaryOpExpr";
-        // TODO: Convert op TokenType to string 
-        j["operator"] = static_cast<int>(op); 
+        // Use string representation for the operator
+        j["operator"] = tokenTypeToString(op); 
         j["left"] = left ? left->toJson() : nullptr;
         j["right"] = right ? right->toJson() : nullptr;
         return j;
@@ -196,8 +197,8 @@ struct VisibilityBlockStmt : public Statement {
     nlohmann::json toJson() const override {
         nlohmann::json j;
         j["node_type"] = "VisibilityBlockStmt";
-        // TODO: Convert visibility TokenType to string
-        j["visibility"] = static_cast<int>(visibility);
+        // Use string representation for visibility
+        j["visibility"] = tokenTypeToString(visibility);
         j["block"] = block ? block->toJson() : nullptr;
         return j;
     }
@@ -343,9 +344,9 @@ struct IOStmt : public Statement {
      nlohmann::json toJson() const override {
         nlohmann::json j;
         j["node_type"] = "IOStmt";
-        // TODO: Convert ioType and direction TokenType to string
-        j["ioType"] = static_cast<int>(ioType);
-        j["direction"] = static_cast<int>(direction);
+        // Use string representations for ioType and direction
+        j["ioType"] = tokenTypeToString(ioType);
+        j["direction"] = tokenTypeToString(direction);
         j["expressions"] = nlohmann::json::array();
          for(const auto& expr : expressions) {
             j["expressions"].push_back(expr ? expr->toJson() : nullptr);
