@@ -1,0 +1,264 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{hyperref}
+
+% Change hyperlink color from red to blue
+\hypersetup{
+	colorlinks=true,
+	linkcolor=blue,
+	filecolor=blue,
+	urlcolor=blue,
+	citecolor=blue
+}
+
+\begin{document}
+	
+	\title{Hanami: A Novel Programming Language for Modern Computing Challenges}
+	
+	\author{\IEEEauthorblockN{Author1}
+		\IEEEauthorblockA{Department of Computer Science\\
+			University Name\\
+			City, Country\\
+			email@domain.edu}
+		\and
+		\IEEEauthorblockN{Author2}
+		\IEEEauthorblockA{Department of Computer Science\\
+			University Name\\
+			City, Country\\
+			email@domain.edu}
+		\and
+		\IEEEauthorblockN{Author3}
+		\IEEEauthorblockA{Research Laboratory\\
+			Organization Name\\
+			City, Country\\
+			email@domain.edu}
+		\and
+		\IEEEauthorblockN{Author4}
+		\IEEEauthorblockA{Research Laboratory\\
+			Organization Name\\
+			City, Country\\
+			email@domain.edu}
+	}
+	
+	\maketitle
+	
+	\begin{abstract}
+		Abstract
+		
+		This paper introduces Hanami, a transpiled programming language developed as an educational exploration by students in CS3370 - Nature of Programming Languages. Hanami serves as a practical investigation into programming language design principles, incorporating features such as a gradient type system, contextual execution models, and effect handling mechanisms. Rather than compiling to machine code, Hanami transpiles to established languages including C++, Java, JavaScript, and Python, enabling cross-platform execution through these host languages. We present our design philosophy, implementation challenges, and insights gained throughout the development process. This project demonstrates how academic exploration of language concepts can materialize into a functional prototype while providing valuable learning experiences about language paradigms, type systems, and transpiler design. Through Hanami, we've created a practical framework for understanding the theoretical underpinnings of programming languages while applying these concepts in a tangible educational context.
+	\end{abstract}
+	
+	\begin{IEEEkeywords}
+		programming languages, type systems, effect systems, concurrent programming, distributed systems, formal verification
+	\end{IEEEkeywords}
+	
+	% Table of contents on a separate page
+	\newpage
+	\tableofcontents
+	\newpage
+	
+	\section{Introduction}
+	\label{sec:introduction}
+	
+	Programming languages play a crucial role in software development, each designed with specific goals and trade-offs. As students in CS3370 - Nature of Programming Languages, we've been exploring these concepts through the development of Hanami, a transpiled programming language created as an educational project.
+	
+	Modern programming involves working with various languages, each with distinct characteristics: Java offers portability, C++ prioritizes performance, Rust focuses on memory safety, and Python emphasizes readability. Through our coursework, we recognized how these trade-offs impact development choices and wondered if a student project could explore alternative approaches.
+	
+	\subsection{Motivation and Educational Objectives}
+	
+	Our motivation for creating Hanami stems from three key observations in our programming language studies:
+	
+	\begin{itemize}
+		\item Type systems typically follow either static or dynamic approaches, with few options in between
+		\item Programming languages often make fundamental design choices that limit their flexibility across different use cases
+		\item Learning compiler/transpiler design principles requires hands-on experience with language implementation
+	\end{itemize}
+	
+	Hanami addresses these educational objectives through a unique approach - instead of compiling to machine code, it transpiles to established languages including C++, Java, JavaScript, and Python. This design decision allows us to focus on language design principles while leveraging existing compilation infrastructure.
+	
+	The name "Hanami", inspired by the Japanese tradition of flower viewing, reflects our design philosophy. Just as hanami celebrates the beauty of cherry blossoms, our language aims to showcase the elegant aspects of programming language design we've studied in this course.
+	
+	\subsection{Educational Impact and Academic Significance}
+	
+	The development of Hanami provides several significant educational benefits:
+	
+	\begin{itemize}
+		\item \textbf{Practical Application of Theory}: Students gain firsthand experience implementing theoretical concepts from programming language design.
+		
+		\item \textbf{Cross-language Understanding}: The transpilation approach deepens understanding of how different languages implement similar concepts.
+		
+		\item \textbf{Compiler Construction Knowledge}: Each phase of development reinforces compiler construction principles in a concrete, accessible way.
+		
+		\item \textbf{Design Trade-off Analysis}: Students make deliberate design choices, weighing the consequences of each decision.
+	\end{itemize}
+	
+	This project bridges the gap between theoretical knowledge and practical implementation, allowing students to experience the challenges and complexities of language design that are difficult to appreciate through traditional coursework alone.
+	
+	\subsection{Technical Overview and Implementation Approach}
+	
+	Key features of our implementation include:
+	
+	\begin{itemize}
+		\item A lexical analyzer (lexer) that converts source code into tokens
+		\item A parser that builds an abstract syntax tree (AST) from these tokens
+		\item A semantic analyzer that verifies program correctness
+		\item A transpiler that converts Hanami code to target languages
+	\end{itemize}
+	
+	Hanami's syntax draws inspiration from multiple languages while introducing nature-themed keywords aligned with its name. For instance, "garden" replaces "namespace," "species" defines classes, and functions are declared using "grow." This design choice makes the language both distinctive and memorable while serving as a practical demonstration of syntax design principles.
+	
+	\begin{table}[!t]
+		\caption{Hanami Keyword Examples}
+		\label{table:keywords}
+		\centering
+		\begin{tabular}{|l|l|l|}
+			\hline
+			\textbf{Hanami} & \textbf{C++ Equivalent} & \textbf{Meaning} \\
+			\hline
+			garden $<$Name$>$ & namespace $<$Name$>$ & Declares a namespace \\
+			\hline
+			species $<$Name$>$ & class $<$Name$>$ & Declares a class \\
+			\hline
+			grow $<$Name$>$() -$>$ $<$type$>$ & $<$type$>$ $<$Name$>$() & Declares a function \\
+			\hline
+			bloom $<<$ x; & std::cout $<<$ x; & Prints to console \\
+			\hline
+		\end{tabular}
+	\end{table}
+	
+	\subsection{Innovative Features and Distinguishing Characteristics}
+	
+	Hanami incorporates several innovative features that distinguish it from typical student projects:
+	
+	\begin{itemize}
+		\item \textbf{Multi-target Transpilation}: Unlike most educational language projects that target a single platform, Hanami transpiles to multiple languages, enabling cross-platform compatibility.
+		
+		\item \textbf{Nature-Inspired Lexical Design}: The consistent nature theme provides a cohesive and memorable programming experience while demonstrating naming convention principles.
+		
+		\item \textbf{Graduated Type System}: Rather than adopting a purely static or dynamic approach, Hanami implements a type system with configurable strictness levels, allowing students to explore the spectrum between these paradigms.
+		
+		\item \textbf{Effect Handling}: Inspired by modern research in programming languages, Hanami includes basic effect handling mechanisms that allow for more controlled side effects.
+	\end{itemize}
+	
+	These features were carefully selected to balance educational value with implementation feasibility while showcasing important concepts in modern programming language design.
+	
+	\subsection{Paper Organization}
+	
+	Through this project, we've gained practical insights into compiler construction stages including lexical analysis, parsing, semantic analysis, and code generation. Our implementation demonstrates these concepts while creating a functional transpiler that converts Hanami code to multiple target languages.
+	
+	The remainder of this paper is organized as follows: Section \ref{sec:design} details Hanami's language design and features. Section \ref{sec:implementation} describes our transpiler implementation, including lexical analysis, parsing, and code generation. Section \ref{sec:examples} presents sample programs and their transpiled outputs. Section \ref{sec:challenges} discusses challenges encountered and lessons learned. Section \ref{sec:conclusion} summarizes our findings and suggests potential improvements.
+	
+	This project represents our practical exploration of programming language concepts and compiler design principles learned throughout the CS3370 course.
+	
+	\section{Language Design and Core Features}
+	\label{sec:design}
+	
+	Hanami is a programming language designed as an educational project in the CS3370 course. Our design philosophy centers on creating a language that students can use to gain a deeper understanding of how programming languages work.
+	
+	\subsection{Language Syntax and Semantics}
+	
+	Hanami employs a syntax designed to balance readability with expressiveness. The core syntax draws inspiration from multiple paradigms, combining the clarity of Python, the type expressiveness of TypeScript, and some features of Rust.
+	
+	Hanami's keywords are inspired by nature, creating a unique experience for users and distinguishing it from other languages. For example:
+	
+	\begin{table}[!t]
+		\caption{Hanami Keyword Examples}
+		\label{table:keywords}
+		\centering
+		\begin{tabular}{|l|l|l|}
+			\hline
+			\textbf{Hanami} & \textbf{C++ Equivalent} & \textbf{Meaning} \\
+			\hline
+			garden & namespace & Declares namespace \\
+			\hline
+			species & class & Declares class \\
+			\hline
+			grow & function & Declares function \\
+			\hline
+			bloom & cout & Prints to console \\
+			\hline
+		\end{tabular}
+	\end{table}
+	
+	\subsection{Core Language Features}
+	
+	Although Hanami is a learning project, we focused on implementing several core features to better understand programming language design:
+	
+	\subsubsection{Transpilation to Multiple Target Languages}
+	
+	One of Hanami's key features is its ability to transpile source code to various target languages. Our transpiler system currently supports generating code for C++, Java, JavaScript, and Python. This allows us to learn about how different languages handle similar concepts and how to implement them effectively.
+	
+	\subsubsection{Type System}
+	
+	Hanami's type system is designed to be simple yet powerful enough to support basic data types, arrays, and user-defined structures. During development, we learned about the complexity of mapping between data types in different target languages.
+	
+	\subsubsection{Function System}
+	
+	Hanami supports both regular functions and class methods. The function declaration syntax is inspired by Rust and TypeScript, with return types specified after an arrow:
+	
+	\begin{verbatim}
+		grow add(x: int, y: int) -> int {
+			return x + y;
+		}
+	\end{verbatim}
+	
+	\subsubsection{Object-Oriented Programming}
+	
+	To better understand object-oriented programming models, Hanami supports basic concepts like classes (species), inheritance, and encapsulation. This implementation has helped us understand how different languages handle OOP.
+	
+	\section{Implementation}
+	\label{sec:implementation}
+	
+	Developing Hanami has helped us understand the stages involved in designing and building a programming language. Our transpiler includes the following components:
+	
+	\begin{itemize}
+		\item \textbf{Lexer}: Converts source code into tokens
+		\item \textbf{Parser}: Builds an abstract syntax tree (AST) from tokens
+		\item \textbf{Semantic Analyzer}: Analyzes program structure and verifies consistency
+		\item \textbf{Code Generator}: Produces code for different target languages
+	\end{itemize}
+	
+	Each component was a valuable learning opportunity about compiler design and programming language principles.
+	
+	\section{Evaluation}
+	\label{sec:evaluation}
+	
+	During Hanami's development, we evaluated the language's performance and usability through several simple program examples:
+	
+	\begin{itemize}
+		\item Basic algorithms (sorting, searching, string processing)
+		\item Small programs demonstrating OOP (student management system, simple games)
+		\item Basic file handling and 
+	\end{itemize}
+	
+	Although Hanami is not designed to compete with commercial programming languages, this evaluation provided valuable insights into factors affecting programming language performance and usability.
+	
+	\subsection{Limitations and Future Work}
+	
+	As a student project, Hanami has several limitations that could be addressed in future work:
+	
+	\begin{itemize}
+		\item Limited support for advanced features (generics, lambda expressions)
+		\item Performance of generated code could be further optimized
+		\item Error handling and reporting needs improvement
+		\item Standard library expansion
+	\end{itemize}
+	
+	These limitations also present learning opportunities for future projects in the CS3370 class.
+	
+	% Use the following if you're directly including the .bbl file:
+	\input{document.bbl}
+	
+	% Or use these lines if you're relying on BibTeX to build the bibliography:
+	% \bibliographystyle{IEEEtran}
+	% \bibliography{references}
+	
+\end{document}

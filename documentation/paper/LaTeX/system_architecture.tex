@@ -1,0 +1,386 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+
+\geometry{margin=1in}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    rulecolor=\color{black!30},
+}
+
+\title{\textbf{System Architecture of the Hanami Compiler}}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Hanami Compiler}
+\lhead{System Architecture}
+\cfoot{\thepage}
+
+\begin{document}
+\maketitle
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Images/System.png}
+    \caption{Table of Contents}
+    \label{fig:contents}
+\end{figure}
+
+\newpage
+
+\section{High-Level Architecture Overview}
+
+The Hanami compiler transforms Hanami source code (.hanami) into other languages like C++, Java, or Python. The compilation process involves distinct phases, each performing specific transformations. The system is structured into primary components such as the Lexer, Parser, Semantic Analyzer, and Code Generator.
+
+\subsection{Architectural Model}
+
+The Hanami compiler employs a modular pipeline architecture where each phase performs a specific transformation on the program representation, passing the result to the next phase. This design enables:
+
+\begin{itemize}
+    \item \textbf{Separation of concerns}: Each component focuses on a well-defined task
+    \item \textbf{Extensibility}: New language features or target platforms can be added with minimal changes to other components
+    \item \textbf{Maintainability}: Components can be developed, tested, and modified independently
+    \item \textbf{Parallelization}: Some phases can be executed concurrently for improved performance
+\end{itemize}
+\subsection{Data Flow Model}
+
+The progression of program representation throughout the compilation process follows a series of well-defined transformations:
+
+\begin{itemize}
+    \item Hanami Source Code (.hanami)
+    \item Lexer: Token Stream
+    \item Parser: Abstract Syntax Tree (AST)
+    \item Semantic Analyzer: Annotated AST
+    \item Code Generator: C++, Java, or Python Code
+\end{itemize}
+
+Each transformation preserves the semantic meaning of the program while changing its representation to facilitate subsequent processing steps.
+
+\section{Lexer}
+
+The lexer converts the raw source code into a stream of tokens. This component is implemented in the \texttt{lexer/} directory.
+
+\subsection{Lexer Components}
+
+\begin{itemize}
+    \item \textbf{TokenDefinition}: Defines the set of token types recognized by the Hanami language
+    \item \textbf{Tokenizer}: Implements the scanning logic to identify tokens in the source code
+    \item \textbf{ErrorReporter}: Reports lexical errors with precise source location information
+\end{itemize}
+
+\subsubsection{Lexer Algorithm}
+
+The lexer employs a deterministic finite automaton (DFA) approach:
+
+\begin{enumerate}
+    \item Read input character by character
+    \item Maintain current state based on previous characters
+    \item Transition between states based on character class
+    \item When an accepting state is reached, emit the corresponding token
+    \item Handle error states with appropriate error messages
+\end{enumerate}
+
+\section{Parser}
+
+The parser constructs an Abstract Syntax Tree (AST) from the token stream, enforcing the syntactic rules of the Hanami language. This component is implemented in the \texttt{parser/} directory.
+
+\subsection{Parser Components}
+
+\begin{itemize}
+    \item \textbf{GrammarDefinition}: Formal definition of the Hanami language grammar
+    \item \textbf{Parser}: Implementation of parsing algorithms (recursive descent with predictive parsing)
+    \item \textbf{ASTNodes}: Hierarchy of node types representing program constructs
+    \item \textbf{SyntaxErrorHandler}: Reports syntax errors with relevant context
+\end{itemize}
+
+\subsubsection{Parsing Algorithm}
+
+The parser uses a recursive descent approach with predictive parsing:
+
+\begin{enumerate}
+    \item Start with the top-level grammar rule
+    \item For each non-terminal in the rule, recursively apply its production rules
+    \item Match terminal symbols against the current token
+    \item Construct AST nodes as grammar rules are successfully matched
+    \item Handle synchronization points for error recovery
+\end{enumerate}
+
+\subsubsection{AST Structure}
+
+The AST is structured as a hierarchical composition of nodes representing different program constructs, including expressions, statements, declarations, and type specifications.
+
+\section{Semantic Analyzer}
+
+The semantic analyzer verifies the semantic correctness of the program and enriches the AST with type and scope information. This component is implemented in the \texttt{semantic\_analyzer/} directory.
+
+\subsection{Semantic Analyzer Components}
+
+\begin{itemize}
+    \item \textbf{SymbolTable}: Manages symbols (variables, functions, types) and their attributes
+    \item \textbf{TypeSystem}: Defines and enforces the type rules of the Hanami language
+    \item \textbf{ScopeManager}: Tracks nested scopes and symbol visibility
+    \item \textbf{SemanticErrorReporter}: Reports semantic errors with contextual information
+\end{itemize}
+
+\subsubsection{Symbol Table Structure}
+
+The symbol table uses a hierarchical structure to represent nested scopes, allowing for efficient symbol lookup and scope management.
+
+\subsubsection{Type System}
+
+The type system defines:
+
+\begin{itemize}
+    \item \textbf{Primitive Types}: int, float, bool, char, etc.
+    \item \textbf{Compound Types}: arrays, structures, enums
+    \item \textbf{Type Relationships}: compatibility, conversion rules
+    \item \textbf{Type Checking}: assignment compatibility, operator operand verification
+\end{itemize}
+
+\subsubsection{Semantic Analysis Process}
+
+\begin{enumerate}
+    \item Traverse the AST using the visitor pattern
+    \item Build and populate the symbol table
+    \item Perform type checking and inference
+    \item Validate semantic constraints (e.g., no duplicate declarations)
+    \item Annotate the AST with semantic information
+\end{enumerate}
+
+\section{Code Generator}
+
+The code generator translates the semantically validated AST into target languages such as C++, Java, or Python. This component is implemented in the \texttt{codegen/} directory.
+
+\subsection{Code Generator Components}
+
+\begin{itemize}
+    \item \textbf{ASTVisitor}: Traverses the annotated AST
+    \item \textbf{CodeEmitter}: Generates code for the target language
+    \item \textbf{LanguageSpecificEmitter}: Handles specific syntax and semantics of the target language
+\end{itemize}
+
+\subsubsection{Code Generation Process}
+
+The code generation process involves:
+
+\begin{enumerate}
+    \item Traverse the AST
+    \item Generate code for each node, considering the target language
+    \item Handle language-specific features
+    \item Output the generated code
+\end{enumerate}
+
+\subsubsection{Target Languages}
+
+The code generator supports multiple target languages:
+
+\begin{itemize}
+    \item C++
+    \item Java
+    \item Python
+\end{itemize}
+
+\section{Support Systems}
+
+\subsection{Build System}
+
+The build system orchestrates the compilation process, managing dependencies and build configurations.
+
+\subsubsection{Build System Components}
+
+\begin{itemize}
+    \item \textbf{Makefile}: Defines build targets and dependencies
+    \item \textbf{Build Configuration}: Manages compiler flags and options
+    \item \textbf{Dependency Tracking}: Determines which files need recompilation
+\end{itemize}
+
+\subsubsection{Build Targets}
+
+The build system provides several targets:
+
+\begin{itemize}
+    \item \textbf{clean}: Remove build artifacts
+    \item \textbf{build}: Compile the compiler
+    \item \textbf{test}: Run test suite
+    \item \textbf{install}: Install compiler binaries
+    \item \textbf{package}: Create distributable packages
+\end{itemize}
+
+\subsubsection{Build Configuration}
+
+The build system supports multiple configurations:
+
+\begin{itemize}
+    \item Debug build (with debugging symbols)
+    \item Release build (optimized)
+    \item Cross-compilation settings
+    \item Feature toggles
+\end{itemize}
+
+\subsection{Common Utilities}
+
+The \texttt{common/} directory contains shared utilities used across compiler components.
+
+\subsubsection{Utility Components}
+
+\begin{itemize}
+    \item \textbf{Error Handling}: Consistent error reporting infrastructure
+    \item \textbf{Source Location Management}: Tracking file, line, and column information
+    \item \textbf{Memory Management}: Custom allocators for compiler data structures
+    \item \textbf{Diagnostics}: Error and warning message formatting
+\end{itemize}
+
+\subsubsection{Data Structures}
+
+The common utilities provide specialized data structures:
+
+\begin{itemize}
+    \item \textbf{Symbol Tables}: Efficient lookup structures
+    \item \textbf{Abstract Syntax Trees}: Node hierarchies
+    \item \textbf{String Interning}: Memory-efficient string storage
+\end{itemize}
+
+\subsubsection{I/O Facilities}
+
+The utilities include I/O facilities for:
+
+\begin{itemize}
+    \item Source file reading
+    \item Output file generation
+    \item Error stream management
+    \item Console interaction
+\end{itemize}
+
+\section{Inter-Component Communication}
+
+\subsection{Data Exchange Formats}
+
+Components communicate through well-defined data structures:
+
+\begin{itemize}
+    \item \textbf{Token Stream}: Between lexer and parser
+    \item \textbf{Abstract Syntax Tree}: Between parser and semantic analyzer
+    \item \textbf{Annotated AST}: Between semantic analyzer and code generator
+    \item \textbf{C++, Java, Python Code}: Output from code generator
+\end{itemize}
+
+\subsection{Error Handling}
+
+The compiler implements a unified error handling strategy:
+
+\begin{itemize}
+    \item \textbf{Error Categories}: Lexical, syntactic, semantic, code generation
+    \item \textbf{Error Severity}: Fatal, error, warning, note
+    \item \textbf{Error Context}: Source location, relevant symbols, suggested fixes
+    \item \textbf{Error Recovery}: Mechanisms to continue compilation after errors
+\end{itemize}
+
+\subsection{Progress Tracking}
+
+The compiler tracks compilation progress for reporting:
+
+\begin{itemize}
+    \item \textbf{Phase Completion}: Indication of completed compilation phases
+    \item \textbf{Statistics}: Time spent in each phase, memory usage
+    \item \textbf{Progress Indicators}: For long-running operations
+\end{itemize}
+
+\section{Compilation Pipeline}
+
+The Hanami compilation process follows a sequence of distinct phases:
+
+\subsection{Source Processing Phase}
+
+\begin{enumerate}
+    \item \textbf{Source Reading}: Loading source files into memory
+    \item \textbf{Lexical Analysis}: Conversion of source code to token stream
+\end{enumerate}
+
+\subsection{Syntax Processing Phase}
+
+\begin{enumerate}
+    \item \textbf{Parsing}: Construction of abstract syntax tree
+    \item \textbf{AST Verification}: Validation of AST structural integrity
+    \item \textbf{AST Transformation}: Normalization of AST structures
+\end{enumerate}
+
+\subsection{Semantic Processing Phase}
+
+\begin{enumerate}
+    \item \textbf{Symbol Collection}: Building symbol tables
+    \item \textbf{Type Analysis}: Type checking and inference
+    \item \textbf{Semantic Validation}: Enforcing language semantic rules
+\end{enumerate}
+
+\subsection{Code Generation Phase}
+
+\begin{enumerate}
+    \item \textbf{Code Generation}: Converting AST to target language code
+    \item \textbf{Code Formatting}: Formatting the generated code
+\end{enumerate}
+
+\section{System Architecture Evaluation}
+
+\subsection{Performance Considerations}
+
+The architecture is designed with performance in mind:
+
+\begin{itemize}
+    \item \textbf{Incremental Processing}: Enabling parallel compilation when possible
+    \item \textbf{Memory Efficiency}: Careful management of large data structures
+    \item \textbf{Processing Time}: Optimization of time-intensive operations
+\end{itemize}
+
+\subsection{Scalability Aspects}
+
+The architecture supports language and compiler evolution:
+
+\begin{itemize}
+    \item \textbf{Feature Extensibility}: Clear extension points for new language features
+    \item \textbf{Target Platform Addition}: Modular approach to supporting new targets
+    \item \textbf{Optimization Expansion}: Framework for adding new optimization passes
+\end{itemize}
+
+\subsection{Maintainability Factors}
+
+The architecture promotes maintainability:
+
+\begin{itemize}
+    \item \textbf{Component Isolation}: Minimizing inter-component dependencies
+    \item \textbf{Interface Stability}: Clear contracts between components
+    \item \textbf{Testing Support}: Design that facilitates comprehensive testing
+\end{itemize}
+
+\subsection{Quality Assurance}
+
+The architecture includes provisions for quality assurance:
+
+\begin{itemize}
+    \item \textbf{Verification Points}: Strategic checks throughout the compilation pipeline
+    \item \textbf{Diagnostic Capabilities}: Extensive error detection and reporting
+    \item \textbf{Tracing Infrastructure}: For debugging and performance analysis
+\end{itemize}
+
+\end{document}
