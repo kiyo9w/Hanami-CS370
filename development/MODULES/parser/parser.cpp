@@ -270,37 +270,60 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
 
 // Variable declaration or expression statement
 // This is tricky because both can start with an identifier.
-// variableDeclaration -> IDENTIFIER IDENTIFIER (ASSIGN expression)? SEMICOLON ;
+// variableDeclaration -> (IDENTIFIER | listType) IDENTIFIER (ASSIGN expression)? SEMICOLON ;
+// listType -> LIST LESS IDENTIFIER GREATER ;
 // expressionStatement -> expression SEMICOLON ;
 std::unique_ptr<Statement> Parser::parseVariableDeclarationOrExprStmt() {
-    // Peek ahead to differentiate based on the sequence: TYPE NAME [= or ;]
-    if (check(TokenType::IDENTIFIER)) {
-        // Case 1: Handle std::string structure
-        if (peek().lexeme == "std" && 
-            current + 3 < tokens.size() &&
-            tokens[current + 1].type == TokenType::SCOPE_RESOLUTION &&
-            tokens[current + 2].type == TokenType::IDENTIFIER &&
-            tokens[current + 3].type == TokenType::IDENTIFIER) {
+    // Peek ahead to differentiate based on the sequence
+    // Case 1: List declaration: list<Type> name ...
+    if (check(TokenType::LIST) && current + 3 < tokens.size() && 
+        tokens[current + 1].type == TokenType::LESS &&
+        tokens[current + 2].type == TokenType::IDENTIFIER &&
+        tokens[current + 3].type == TokenType::GREATER &&
+        current + 4 < tokens.size() && tokens[current + 4].type == TokenType::IDENTIFIER) 
+    {
+        Token listKeyword = advance(); // Consume 'list'
+        consume(TokenType::LESS, "Expect '<' after 'list'.");
+        Token typeParam = consume(TokenType::IDENTIFIER, "Expect type parameter inside < >.");
+        consume(TokenType::GREATER, "Expect '>' after list type parameter.");
+        Token varName = consume(TokenType::IDENTIFIER, "Expect variable name after list type.");
+
+        std::unique_ptr<Expression> initializer = nullptr;
+        if (match({TokenType::ASSIGN})) {
+            initializer = parseExpression();
+        }
+        consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+        return std::make_unique<VariableDeclStmt>(listKeyword.lexeme, varName.lexeme, std::move(initializer), typeParam.lexeme);
+    }
+
+    // Case 2: std::string identifier ...
+    if (check(TokenType::IDENTIFIER) && peek().lexeme == "std" && 
+        current + 3 < tokens.size() &&
+        tokens[current + 1].type == TokenType::SCOPE_RESOLUTION &&
+        tokens[current + 2].type == TokenType::IDENTIFIER &&
+        tokens[current + 3].type == TokenType::IDENTIFIER) {
             
-            Token stdToken = advance(); // Consume 'std'
-            consume(TokenType::SCOPE_RESOLUTION, "Expect '::'.");
-            Token typeNamePart2 = consume(TokenType::IDENTIFIER, "Expect type name after '::'.");
-            Token varName = consume(TokenType::IDENTIFIER, "Expect variable name.");
-            
-            // Important: Use "string" instead of "std::string" for semantic analyzer
-            // But keep track of the full type name for future use if needed
-            std::string actualTypeName = "string";
-            
-            std::unique_ptr<Expression> initializer = nullptr;
-            if (match({TokenType::ASSIGN})) {
-                initializer = parseExpression();
-            }
-            
-            consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
-            return std::make_unique<VariableDeclStmt>(actualTypeName, varName.lexeme, std::move(initializer));
+        Token stdToken = advance(); // Consume 'std'
+        consume(TokenType::SCOPE_RESOLUTION, "Expect '::'.");
+        Token typeNamePart2 = consume(TokenType::IDENTIFIER, "Expect type name after '::'.");
+        Token varName = consume(TokenType::IDENTIFIER, "Expect variable name.");
+        
+        // Important: Use "string" instead of "std::string" for semantic analyzer
+        // But keep track of the full type name for future use if needed
+        std::string actualTypeName = "string";
+        
+        std::unique_ptr<Expression> initializer = nullptr;
+        if (match({TokenType::ASSIGN})) {
+            initializer = parseExpression();
         }
         
-        // Case 2: Regular variable declaration (type name)
+        consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+        return std::make_unique<VariableDeclStmt>(actualTypeName, varName.lexeme, std::move(initializer));
+    }
+    
+    // Case 3: Regular type identifier ...
+    if (check(TokenType::IDENTIFIER)) {
+        // Lookahead to differentiate: TYPE NAME [= or ;]
         if (current + 1 < tokens.size() && tokens[current + 1].type == TokenType::IDENTIFIER) {
             // Additional check to see if it's actually a variable declaration
             if (current + 2 < tokens.size()) {
@@ -530,7 +553,7 @@ std::unique_ptr<Expression> Parser::finishCall(Parser* parser, std::unique_ptr<E
     return callExpr;
 }
 
-// call -> primary ( LEFT_PAREN arguments? RIGHT_PAREN | DOT IDENTIFIER )* ;
+// call -> primary ( LEFT_PAREN arguments? RIGHT_PAREN | DOT IDENTIFIER | LEFT_BRACKET expression RIGHT_BRACKET )* ;
 // arguments -> expression ( COMMA expression )*
 std::unique_ptr<Expression> Parser::parseCall() {
     auto expr = parsePrimary();
@@ -541,6 +564,10 @@ std::unique_ptr<Expression> Parser::parseCall() {
         } else if (match({TokenType::DOT})) {
             Token name = consume(TokenType::IDENTIFIER, "Expect property name after '.'.");
             expr = std::make_unique<MemberAccessExpr>(std::move(expr), std::make_unique<IdentifierExpr>(name.lexeme));
+        } else if (match({TokenType::LEFT_BRACKET})) { // Handle list access []
+            auto index = parseExpression();
+            consume(TokenType::RIGHT_BRACKET, "Expect ']' after list index expression.");
+            expr = std::make_unique<ListAccessExpr>(std::move(expr), std::move(index));
         } else {
             break;
         }
@@ -550,8 +577,8 @@ std::unique_ptr<Expression> Parser::parseCall() {
 }
 
 
-// primary -> NUMBER | STRING | TRUE | FALSE | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN ;
-// Handle std::string special case
+// primary -> NUMBER | STRING | TRUE | FALSE | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN | listLiteral ;
+// listLiteral -> LEFT_BRACKET (expression (COMMA expression)* )? RIGHT_BRACKET ;
 std::unique_ptr<Expression> Parser::parsePrimary() {
     if (match({TokenType::FALSE})) return std::make_unique<BooleanLiteralExpr>(false);
     if (match({TokenType::TRUE})) return std::make_unique<BooleanLiteralExpr>(true);
@@ -567,6 +594,18 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
     }
     if (match({TokenType::DOUBLE_LITERAL})) {
         return std::make_unique<DoubleLiteralExpr>(previous().lexeme);
+    }
+
+    // Handle List Literal: [ elem1, elem2, ... ]
+    if (match({TokenType::LEFT_BRACKET})) {
+        auto listLiteral = std::make_unique<ListLiteralExpr>();
+        if (!check(TokenType::RIGHT_BRACKET)) {
+            do {
+                listLiteral->elements.push_back(parseExpression());
+            } while (match({TokenType::COMMA}));
+        }
+        consume(TokenType::RIGHT_BRACKET, "Expect ']' after list elements.");
+        return listLiteral;
     }
 
     if (match({TokenType::IDENTIFIER})) {

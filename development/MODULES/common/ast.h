@@ -248,14 +248,18 @@ struct SpeciesDeclStmt : public Statement {
 struct VariableDeclStmt : public Statement {
     std::string typeName; 
     std::string varName;
-    std::unique_ptr<Expression> initializer; 
-    VariableDeclStmt(std::string type, std::string name, std::unique_ptr<Expression> init = nullptr)
-        : typeName(std::move(type)), varName(std::move(name)), initializer(std::move(init)) {}
+    std::string typeParameter = ""; // Added for generic types like list<T>
+    std::unique_ptr<Expression> initializer;
+    VariableDeclStmt(std::string type, std::string name, std::unique_ptr<Expression> init = nullptr, std::string param = "")
+        : typeName(std::move(type)), varName(std::move(name)), typeParameter(std::move(param)), initializer(std::move(init)) {}
      nlohmann::json toJson() const override {
         nlohmann::json j;
         j["node_type"] = "VariableDeclStmt";
         j["typeName"] = typeName;
         j["varName"] = varName;
+        if (!typeParameter.empty()) {
+            j["typeParameter"] = typeParameter;
+        }
         j["initializer"] = initializer ? initializer->toJson() : nullptr;
         return j;
     }
@@ -411,6 +415,38 @@ struct ForStmt : public Statement {
         j["condition"] = condition ? condition->toJson() : nullptr;
         j["increment"] = increment ? increment->toJson() : nullptr;
         j["body"] = body ? body->toJson() : nullptr;
+        return j;
+    }
+};
+
+// Added ListLiteralExpr
+struct ListLiteralExpr : public Expression {
+    std::vector<std::unique_ptr<Expression>> elements;
+    // Type could be inferred during semantic analysis or explicitly stored
+    // std::string elementType;
+    ListLiteralExpr() = default;
+    nlohmann::json toJson() const override {
+        nlohmann::json j;
+        j["node_type"] = "ListLiteralExpr";
+        j["elements"] = nlohmann::json::array();
+        for(const auto& elem : elements) {
+            j["elements"].push_back(elem ? elem->toJson() : nullptr);
+        }
+        return j;
+    }
+};
+
+// Added ListAccessExpr
+struct ListAccessExpr : public Expression {
+    std::unique_ptr<Expression> listObject; // The variable or expression yielding the list
+    std::unique_ptr<Expression> index;      // The index expression
+    ListAccessExpr(std::unique_ptr<Expression> obj, std::unique_ptr<Expression> idx)
+        : listObject(std::move(obj)), index(std::move(idx)) {}
+    nlohmann::json toJson() const override {
+        nlohmann::json j;
+        j["node_type"] = "ListAccessExpr";
+        j["listObject"] = listObject ? listObject->toJson() : nullptr;
+        j["index"] = index ? index->toJson() : nullptr;
         return j;
     }
 };

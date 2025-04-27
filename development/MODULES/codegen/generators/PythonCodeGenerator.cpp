@@ -151,7 +151,12 @@ private:
         if (node->initializer) {
             code += " = " + dispatchExpr(node->initializer.get());
         } else {
-             code += " = None"; // Initialize to None if no initializer
+             // Default initialize lists to [], others to None
+             if (node->typeName == "list") {
+                 code += " = []";
+             } else {
+                 code += " = None"; 
+             }
         }
         code += "\n";
         return code;
@@ -368,6 +373,23 @@ private:
         return code;
     }
 
+    // Added List Literal visitor
+    std::string visitListLiteralExpr(ListLiteralExpr* node) override {
+        std::string code = "[";
+        for (size_t i = 0; i < node->elements.size(); ++i) {
+            code += dispatchExpr(node->elements[i].get());
+            if (i < node->elements.size() - 1) code += ", ";
+        }
+        code += "]";
+        return code;
+    }
+
+    // Added List Access visitor
+    std::string visitListAccessExpr(ListAccessExpr* node) override {
+        // Generates code like listObject[index]
+        return dispatchExpr(node->listObject.get()) + "[" + dispatchExpr(node->index.get()) + "]";
+    }
+
     // Dispatch expression nodes (return value as string)
     std::string dispatchExpr(Expression* expr) {
         // This is a simplified dispatch for expression nodes. 
@@ -385,6 +407,8 @@ private:
         if (auto* p = dynamic_cast<FunctionCallExpr*>(expr)) return visitFunctionCallExpr(p);
         if (auto* p = dynamic_cast<MemberAccessExpr*>(expr)) return visitMemberAccessExpr(p);
         if (auto* p = dynamic_cast<AssignmentStmt*>(expr)) return visitAssignmentStmt(p);
+        if (auto* p = dynamic_cast<ListLiteralExpr*>(expr)) return visitListLiteralExpr(p);
+        if (auto* p = dynamic_cast<ListAccessExpr*>(expr)) return visitListAccessExpr(p);
 
         return "#<Unknown Expr>#"; // Placeholder for unhandled expression types
     }

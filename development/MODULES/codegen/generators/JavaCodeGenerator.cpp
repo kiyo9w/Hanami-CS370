@@ -72,7 +72,32 @@ private:
         if (hanamiType == "bool") return "boolean";
         if (hanamiType == "string") return "String";
         if (hanamiType == "void") return "void";
+        if (hanamiType == "float") return "float";
+        if (hanamiType == "double") return "double";
+
+        // Handle list<T>
+        if (hanamiType.rfind("list<", 0) == 0 && hanamiType.back() == '>') {
+            includes_.insert("import java.util.ArrayList;");
+            includes_.insert("import java.util.List;"); // Use List interface
+            size_t start = 5; // Length of "list<"
+            size_t end = hanamiType.length() - 1;
+            std::string elementType = hanamiType.substr(start, end - start);
+            // Need to map basic types to their Object wrappers for generic lists
+            std::string javaElementType = mapTypeToObjectWrapper(elementType);
+            return "List<" + javaElementType + ">";
+        }
+        
         return hanamiType; // Assume species name is Java class name
+    }
+    
+    // Helper to map primitive types to Object wrappers for generics
+    std::string mapTypeToObjectWrapper(const std::string& hanamiType) {
+        if (hanamiType == "int") return "Integer";
+        if (hanamiType == "bool") return "Boolean";
+        if (hanamiType == "float") return "Float";
+        if (hanamiType == "double") return "Double";
+        // String and custom Species types are already objects
+        return mapType(hanamiType); 
     }
     
     // --- Operator Mapping ---
@@ -195,14 +220,24 @@ private:
 
     std::string visitVariableDecl(VariableDeclStmt* node) override {
         std::string code = getIndent();
-        std::string javaType = mapType(node->typeName);
+        // Combine typeName and typeParameter if it's a list
+        std::string fullTypeName = node->typeName;
+        if (node->typeName == "list" && !node->typeParameter.empty()) {
+            fullTypeName = "list<" + node->typeParameter + ">";
+        }
+        
+        std::string javaType = mapType(fullTypeName);
         code += javaType + " " + node->varName;
         
         if (node->initializer) {
             code += " = " + dispatchExpr(node->initializer.get());
-        } else if (!node->typeName.empty() && std::isupper(node->typeName[0])) {
-            // Initialize object types
-            code += " = new " + javaType + "()";
+        } else {
+            // Default initialization for different types
+            if (fullTypeName.rfind("list<", 0) == 0) { // Initialize lists
+                 code += " = new ArrayList<>()";
+            } else if (!node->typeName.empty() && std::isupper(node->typeName[0])) { // Initialize objects (Species)
+                 code += " = new " + javaType + "()"; 
+            } // Primitives get default Java values (0, false, null for String)
         }
         
         code += ";\n";
@@ -497,5 +532,24 @@ private:
         indentLevel--;
         code += getIndent() + "}\n";
         return code;
+    }
+
+    // Added List Literal visitor
+    std::string visitListLiteralExpr(ListLiteralExpr* node) override {
+        includes_.insert("import java.util.ArrayList;");
+        includes_.insert("import java.util.Arrays;");
+        std::string code = "new ArrayList<>(Arrays.asList(";
+        for (size_t i = 0; i < node->elements.size(); ++i) {
+            code += dispatchExpr(node->elements[i].get());
+            if (i < node->elements.size() - 1) code += ", ";
+        }
+        code += "))";
+        return code;
+    }
+    
+    // Added List Access visitor
+    std::string visitListAccessExpr(ListAccessExpr* node) override {
+        // Generates code like listObject.get(index)
+        return dispatchExpr(node->listObject.get()) + ".get(" + dispatchExpr(node->index.get()) + ")";
     }
 };

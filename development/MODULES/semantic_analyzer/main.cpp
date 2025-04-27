@@ -251,6 +251,57 @@ private:
             return entry->typeName;
         }
 
+        // List Literal
+        if (ListLiteralExpr* listLit = dynamic_cast<ListLiteralExpr*>(expr)) {
+            if (listLit->elements.empty()) {
+                // Cannot determine type of empty list literal without context.
+                // We could potentially look at assignment target if available.
+                // For now, let's return a special placeholder or report an error.
+                error("Empty list literals [] are currently ambiguous. Use explicit type declaration.");
+                return ""; // Or maybe "list<unknown>"?
+            }
+            // Infer type from the first element
+            std::string firstElementType = typeOf(listLit->elements[0].get());
+            if (firstElementType.empty()) {
+                return ""; // Error already reported in first element's typeOf
+            }
+            // Check all other elements match the first element's type
+            for (size_t i = 1; i < listLit->elements.size(); ++i) {
+                std::string elementType = typeOf(listLit->elements[i].get());
+                if (!elementType.empty() && elementType != firstElementType) {
+                    error("List literal contains elements of different types: found '" + 
+                          firstElementType + "' and '" + elementType + "'.");
+                    return "";
+                }
+            }
+            return "list<" + firstElementType + ">";
+        }
+
+        // List Access
+        if (ListAccessExpr* listAccess = dynamic_cast<ListAccessExpr*>(expr)) {
+            std::string objectType = typeOf(listAccess->listObject.get());
+            std::string indexType = typeOf(listAccess->index.get());
+
+            if (objectType.empty() || indexType.empty()) return ""; // Error already reported
+
+            // Check if object is actually a list
+            if (objectType.rfind("list<", 0) != 0 || objectType.back() != '>') { // Basic check
+                error("Cannot apply index operator [] to non-list type '" + objectType + "'.");
+                return "";
+            }
+            // Check if index is int
+            if (indexType != "int") {
+                error("List index must be an integer, but got type '" + indexType + "'.");
+                return "";
+            }
+            
+            // Extract element type
+            size_t start = 5; // Length of "list<"
+            size_t end = objectType.length() - 1;
+            std::string elementType = objectType.substr(start, end - start);
+            return elementType;
+        }
+
         // Binary Operations
         if (BinaryOpExpr* binOp = dynamic_cast<BinaryOpExpr*>(expr)) {
             std::string leftType = typeOf(binOp->left.get());
@@ -444,6 +495,8 @@ private:
                  // Allow assigning int to float/double, or float to double
                  if ((leftType == "float" || leftType == "double") && rightType == "int") compatible = true;
                  if (leftType == "double" && rightType == "float") compatible = true;
+                 // Add list compatibility check (exact match needed)
+                 // Already handled by leftType == rightType check
              }
 
              if (!leftType.empty() && !rightType.empty() && !compatible) {
@@ -608,39 +661,68 @@ private:
     void visitVariableDecl(VariableDeclStmt* node) {
          // If inside a species, this was handled in visitSpeciesDecl first pass
          if (!currentSpeciesName_.empty()) {
-              // Analyze initializer if present
+             // Analyze initializer if present (members are already defined)
+             SymbolEntry* memberEntry = symbolTable_.lookupMember(node->varName, currentSpeciesName_, currentSpeciesName_);
+             if (!memberEntry) { /* Should not happen if pre-pass worked */ return; }
+             
              if (node->initializer) {
                  std::string initializerType = typeOf(node->initializer.get());
-                  if (!initializerType.empty() && initializerType != node->typeName) {
+                 if (!initializerType.empty() && initializerType != memberEntry->typeName) {
                        error("Type mismatch: Cannot initialize member variable '" + node->varName +
-                             "' of type '" + node->typeName + "' with expression of type '" +
+                             "' of type '" + memberEntry->typeName + "' with expression of type '" +
                              initializerType + "'.");
-                  }
+                 }
              }
              return; // Definition already handled
          }
 
-         // --- Regular variable declaration ---
-         // Check type exists
-         if (node->typeName != "int" && node->typeName != "string" && node->typeName != "bool") {
-             SymbolEntry* typeEntry = symbolTable_.lookup(node->typeName);
-             if (!typeEntry || typeEntry->kind != SymbolType::SPECIES) { // Allow species types
-                 error("Unknown type '" + node->typeName + "' for variable '" + node->varName + "'.");
+         // --- Regular variable declaration --- 
+         std::string declaredTypeName = node->typeName;
+         
+         // Handle list<T> type declaration
+         if (node->typeName == "list") {
+             if (node->typeParameter.empty()) {
+                 error("List declaration requires a type parameter like list<int>. Usage: list<Type> name;");
+                 return; // Stop analysis for this invalid declaration
+             }
+             // Check if type parameter is a valid known type (primitive or species)
+             if (node->typeParameter != "int" && node->typeParameter != "string" && node->typeParameter != "bool" &&
+                 node->typeParameter != "float" && node->typeParameter != "double") {
+                 SymbolEntry* typeEntry = symbolTable_.lookup(node->typeParameter);
+                 if (!typeEntry || (typeEntry->kind != SymbolType::SPECIES && typeEntry->kind != SymbolType::VARIABLE)) { // Allow primitives implicitly
+                     error("Unknown type parameter '" + node->typeParameter + "' for list variable '" + node->varName + "'.");
+                     // We might still proceed assuming the type exists, but definition might fail
+                 }
+             }
+             declaredTypeName = "list<" + node->typeParameter + ">";
+         } else {
+             // Check regular type existence (primitive or species)
+             if (node->typeName != "int" && node->typeName != "string" && node->typeName != "bool" &&
+                 node->typeName != "float" && node->typeName != "double") {
+                 SymbolEntry* typeEntry = symbolTable_.lookup(node->typeName);
+                 if (!typeEntry || typeEntry->kind != SymbolType::SPECIES) { 
+                     error("Unknown type '" + node->typeName + "' for variable '" + node->varName + "'.");
+                 }
              }
          }
 
-        // Check initializer type
+        // Check initializer type against the full declared type name
         if (node->initializer) {
              std::string initializerType = typeOf(node->initializer.get());
-             if (!initializerType.empty() && initializerType != node->typeName) {
-                  error("Type mismatch: Cannot initialize variable '" + node->varName +
-                        "' of type '" + node->typeName + "' with expression of type '" +
-                        initializerType + "'.");
+             if (!initializerType.empty() && initializerType != declaredTypeName) {
+                  // Special case: Allow assigning [] to a declared list type?
+                  bool allowEmptyListInit = (declaredTypeName.rfind("list<", 0) == 0 && dynamic_cast<ListLiteralExpr*>(node->initializer.get()) && 
+                                            dynamic_cast<ListLiteralExpr*>(node->initializer.get())->elements.empty());
+                  if (!allowEmptyListInit) {
+                       error("Type mismatch: Cannot initialize variable '" + node->varName +
+                             "' of type '" + declaredTypeName + "' with expression of type '" +
+                             initializerType + "'.");
+                  }
              }
         }
 
-        // Define the variable
-        if (!symbolTable_.define(node->varName, node->typeName, SymbolType::VARIABLE)) {
+        // Define the variable using the potentially modified declaredTypeName
+        if (!symbolTable_.define(node->varName, declaredTypeName, SymbolType::VARIABLE)) {
             error("Variable '" + node->varName + "' already declared in this scope.");
         }
     }

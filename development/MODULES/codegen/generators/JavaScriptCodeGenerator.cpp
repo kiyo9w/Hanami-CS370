@@ -130,7 +130,12 @@ private:
         if (node->initializer) {
             code += " = " + dispatchExpr(node->initializer.get());
         } else {
-             code += " = undefined"; // Or null?
+             // Default initialize lists to [], others to undefined
+             if (node->typeName == "list") {
+                 code += " = []";
+             } else {
+                 code += " = undefined"; // Or null?
+             }
         }
         code += ";\n";
         return code;
@@ -312,6 +317,23 @@ private:
         indentLevel--;
         code += getIndent() + "}\n";
         return code;
+    }
+
+    // Added List Literal visitor
+    std::string visitListLiteralExpr(ListLiteralExpr* node) override {
+        std::string code = "[";
+        for (size_t i = 0; i < node->elements.size(); ++i) {
+            code += dispatchExpr(node->elements[i].get());
+            if (i < node->elements.size() - 1) code += ", ";
+        }
+        code += "]";
+        return code;
+    }
+    
+    // Added List Access visitor
+    std::string visitListAccessExpr(ListAccessExpr* node) override {
+        // Generates code like listObject[index]
+        return dispatchExpr(node->listObject.get()) + "[" + dispatchExpr(node->index.get()) + "]";
     }
 
 }; 

@@ -10,6 +10,7 @@ enum class TokenType {
     // Hanami Keywords
     GARDEN,     // namespace
     SPECIES,    // class
+    LIST,       // Added keyword for list type
     OPEN,       // public
     HIDDEN,     // private
     GUARDED,    // protected

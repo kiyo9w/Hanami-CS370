@@ -56,6 +56,18 @@ private:
              return "std::string";
         }
         if (hanamiType == "void") return "void";
+        if (hanamiType == "float") return "float";
+        if (hanamiType == "double") return "double";
+        
+        // Handle list<T>
+        if (hanamiType.rfind("list<", 0) == 0 && hanamiType.back() == '>') {
+            includes_.insert("#include <vector>");
+            size_t start = 5; // Length of "list<"
+            size_t end = hanamiType.length() - 1;
+            std::string elementType = hanamiType.substr(start, end - start);
+            return "std::vector<" + mapType(elementType) + ">"; // Recursively map element type
+        }
+        
         // TODO: Map Species names (structs/classes)
         return hanamiType; // Assume species name is C++ class/struct name
     }
@@ -159,7 +171,13 @@ private:
 
     std::string visitVariableDecl(VariableDeclStmt* node) override {
         std::string code = getIndent();
-        code += mapType(node->typeName) + " " + node->varName;
+        // Combine typeName and typeParameter if it's a list
+        std::string fullTypeName = node->typeName;
+        if (node->typeName == "list" && !node->typeParameter.empty()) {
+            fullTypeName = "list<" + node->typeParameter + ">";
+        }
+        
+        code += mapType(fullTypeName) + " " + node->varName;
         if (node->initializer) {
             code += " = " + dispatchExpr(node->initializer.get());
         }
@@ -344,6 +362,29 @@ private:
         indentLevel--;
         code += getIndent() + "}\n";
         return code;
+    }
+
+    // Added List Literal visitor
+    std::string visitListLiteralExpr(ListLiteralExpr* node) override {
+        includes_.insert("#include <vector>"); // Ensure vector is included
+        // Determine element type based on the first element if possible
+        // C++ needs explicit type for vector initialization
+        // This requires semantic info (or making assumptions)
+        // Assuming the type can be inferred or context provides it.
+        // Generating initializer list syntax { elem1, elem2, ... }
+        std::string code = "{"; 
+        for (size_t i = 0; i < node->elements.size(); ++i) {
+            code += dispatchExpr(node->elements[i].get());
+            if (i < node->elements.size() - 1) code += ", ";
+        }
+        code += "}";
+        return code;
+    }
+    
+    // Added List Access visitor
+    std::string visitListAccessExpr(ListAccessExpr* node) override {
+        // Generates code like listObject[index]
+        return dispatchExpr(node->listObject.get()) + "[" + dispatchExpr(node->index.get()) + "]";
     }
 
 }; 
