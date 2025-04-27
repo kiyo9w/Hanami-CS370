@@ -74,6 +74,29 @@ struct StringLiteralExpr : public Expression {
     }
 };
 
+struct FloatLiteralExpr : public Expression {
+    std::string value;
+    FloatLiteralExpr(std::string v) : value(std::move(v)) {}
+    nlohmann::json toJson() const override {
+        nlohmann::json j;
+        j["node_type"] = "FloatLiteralExpr";
+        j["value"] = value;
+        return j;
+    }
+};
+
+struct DoubleLiteralExpr : public Expression {
+    std::string value;
+    DoubleLiteralExpr(std::string v) : value(std::move(v)) {}
+    nlohmann::json toJson() const override {
+        nlohmann::json j;   
+        j["node_type"] = "DoubleLiteralExpr";
+        j["value"] = value;
+        return j;
+    }
+};
+
+
 struct BooleanLiteralExpr : public Expression {
     bool value;
     BooleanLiteralExpr(bool v) : value(v) {}

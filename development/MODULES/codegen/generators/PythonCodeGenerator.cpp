@@ -283,6 +283,14 @@ private:
           return node->name; 
      }
      std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { return node->value.empty() ? "0" : node->value; }
+     std::string visitFloatLiteralExpr(FloatLiteralExpr* node) override {
+         // Python handles floats directly
+         return node->value;
+     }
+     std::string visitDoubleLiteralExpr(DoubleLiteralExpr* node) override {
+         // Python treats floats and doubles similarly (as float)
+         return node->value;
+     }
      std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
          // Python uses quotes, escapes might need translation
           return "\"" + node->value + "\""; 
@@ -358,6 +366,27 @@ private:
         }
         indentLevel--;
         return code;
+    }
+
+    // Dispatch expression nodes (return value as string)
+    std::string dispatchExpr(Expression* expr) {
+        // This is a simplified dispatch for expression nodes. 
+        // It assumes expressions can be directly converted to string representations.
+        if (!expr) return "None"; // Default Python representation for null/void
+        
+        // Using dynamic_cast to determine the type and call the specific visitor
+        if (auto* p = dynamic_cast<IdentifierExpr*>(expr)) return visitIdentifierExpr(p);
+        if (auto* p = dynamic_cast<NumberLiteralExpr*>(expr)) return visitNumberLiteralExpr(p);
+        if (auto* p = dynamic_cast<FloatLiteralExpr*>(expr)) return visitFloatLiteralExpr(p);
+        if (auto* p = dynamic_cast<DoubleLiteralExpr*>(expr)) return visitDoubleLiteralExpr(p);
+        if (auto* p = dynamic_cast<StringLiteralExpr*>(expr)) return visitStringLiteralExpr(p);
+        if (auto* p = dynamic_cast<BooleanLiteralExpr*>(expr)) return visitBooleanLiteralExpr(p);
+        if (auto* p = dynamic_cast<BinaryOpExpr*>(expr)) return visitBinaryOpExpr(p);
+        if (auto* p = dynamic_cast<FunctionCallExpr*>(expr)) return visitFunctionCallExpr(p);
+        if (auto* p = dynamic_cast<MemberAccessExpr*>(expr)) return visitMemberAccessExpr(p);
+        if (auto* p = dynamic_cast<AssignmentStmt*>(expr)) return visitAssignmentStmt(p);
+
+        return "#<Unknown Expr>#"; // Placeholder for unhandled expression types
     }
 
 }; 

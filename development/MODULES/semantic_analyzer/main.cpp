@@ -228,6 +228,8 @@ private:
         if (dynamic_cast<NumberLiteralExpr*>(expr)) return "int";
         if (dynamic_cast<StringLiteralExpr*>(expr)) return "string";
         if (dynamic_cast<BooleanLiteralExpr*>(expr)) return "bool";
+        if (dynamic_cast<FloatLiteralExpr*>(expr)) return "float";
+        if (dynamic_cast<DoubleLiteralExpr*>(expr)) return "double";
 
         // Variables/Functions/Species instances
         if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr)) {
@@ -256,15 +258,33 @@ private:
 
             if (leftType.empty() || rightType.empty()) return ""; // Avoid cascading errors
 
-            // Arithmetic (int only for now)
-             if (binOp->op == TokenType::PLUS || binOp->op == TokenType::MINUS ||
-                 binOp->op == TokenType::STAR || binOp->op == TokenType::SLASH ||
-                 binOp->op == TokenType::MODULO) {
-                 if (leftType == "int" && rightType == "int") return "int";
-                 // TODO: Allow string concatenation for PLUS
-                 error("Arithmetic operation requires 'int' types, but got '" + leftType + "' and '" + rightType + "'.");
+            // Helper lambda to check if a type is numeric
+            auto isNumeric = [](const std::string& type) {
+                return type == "int" || type == "float" || type == "double";
+            };
+
+            // Arithmetic Operations
+            if (binOp->op == TokenType::PLUS || binOp->op == TokenType::MINUS ||
+                binOp->op == TokenType::STAR || binOp->op == TokenType::SLASH) {
+                if (isNumeric(leftType) && isNumeric(rightType)) {
+                    // Type promotion rules: double > float > int
+                    if (leftType == "double" || rightType == "double") return "double";
+                    if (leftType == "float" || rightType == "float") return "float";
+                    return "int"; // Both must be int
+                }
+                // Allow string concatenation for PLUS
+                if (binOp->op == TokenType::PLUS && leftType == "string" && rightType == "string") {
+                     return "string";
+                }
+                 error("Arithmetic operation requires numeric types (int, float, double) or string concatenation, but got '" + leftType + "' and '" + rightType + "'.");
                  return "";
              }
+            // Modulo (typically integer only)
+            if (binOp->op == TokenType::MODULO) {
+                 if (leftType == "int" && rightType == "int") return "int";
+                 error("Modulo operation requires 'int' types, but got '" + leftType + "' and '" + rightType + "'.");
+                 return "";
+            }
             // Logical
             if (binOp->op == TokenType::AND || binOp->op == TokenType::OR) {
                 if (leftType == "bool" && rightType == "bool") return "bool";
@@ -276,14 +296,18 @@ private:
                 binOp->op == TokenType::LESS || binOp->op == TokenType::LESS_EQUAL ||
                 binOp->op == TokenType::GREATER || binOp->op == TokenType::GREATER_EQUAL)
             {
-                // Basic comparison: allow same types, or int/float etc.
-                 if (leftType == rightType) return "bool";
-                 // TODO: Add more flexible comparison rules (e.g. int/float)
+                 // Allow comparison between any two numeric types
+                 if (isNumeric(leftType) && isNumeric(rightType)) return "bool";
+                 // Allow comparison between two strings
+                 if (leftType == "string" && rightType == "string") return "bool";
+                 // Allow comparison between two bools (for == and !=)
+                 if ((binOp->op == TokenType::EQUAL || binOp->op == TokenType::NOT_EQUAL) && leftType == "bool" && rightType == "bool") return "bool";
+                 
                  error("Comparison between incompatible types '" + leftType + "' and '" + rightType + "'.");
                  return "";
             }
 
-            error("Unsupported binary operator for types '" + leftType + "' and '" + rightType + "'.");
+            error("Unsupported binary operator '" + tokenTypeToString(binOp->op) + "' for types '" + leftType + "' and '" + rightType + "'.");
             return "";
         }
 
@@ -412,7 +436,17 @@ private:
                   return "";
               }
              
-             if (!leftType.empty() && !rightType.empty() && leftType != rightType) {
+             // Check assignment compatibility
+             bool compatible = false;
+             if (leftType == rightType) {
+                 compatible = true;
+             } else {
+                 // Allow assigning int to float/double, or float to double
+                 if ((leftType == "float" || leftType == "double") && rightType == "int") compatible = true;
+                 if (leftType == "double" && rightType == "float") compatible = true;
+             }
+
+             if (!leftType.empty() && !rightType.empty() && !compatible) {
                    error("Type mismatch: Cannot assign value of type '" + rightType + "' to L-value of type '" + leftType + "'.");
                    return ""; // Return empty on type error
              }

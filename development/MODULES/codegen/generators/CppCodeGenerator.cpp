@@ -266,11 +266,21 @@ private:
     
     // --- Expression Visitors ---
      std::string visitIdentifierExpr(IdentifierExpr* node) override { 
-         // Handle std::string
-          if(node->name == "std::string") return "std::string";
-         return node->name; 
+         return node->name;
      }
+     
      std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { return node->value.empty() ? "0" : node->value; }
+     
+     std::string visitFloatLiteralExpr(FloatLiteralExpr* node) override {
+         // C++ requires 'f' suffix for float literals
+         return node->value + "f";
+     }
+     
+     std::string visitDoubleLiteralExpr(DoubleLiteralExpr* node) override {
+         // Standard double literal format in C++
+         return node->value;
+     }
+     
      std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
           includes_.insert("#include <string>");
           return "std::string(\"" + node->value + "\")"; // Construct std::string
