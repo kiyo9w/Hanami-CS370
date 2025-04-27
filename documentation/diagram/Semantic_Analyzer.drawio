@@ -1,0 +1,103 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram name="Trang-1" id="ae18-4LUJwS0NWcRIFIJ">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-1" target="i1gnTmM2DgrWp9bDKEA0-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-1" value="Semantic&lt;br&gt;Analyzer Visitor" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="390" y="70" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-4" value="&lt;font&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt; &lt;/span&gt;&amp;nbsp; Attributes&lt;/font&gt;&lt;div&gt;&lt;div&gt;&lt;font&gt;-&lt;/font&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&amp;nbsp;SymbolTable symbolTable&lt;/span&gt;&lt;/div&gt;&lt;div&gt;- std::vector&amp;lt;std::string&amp;gt; errors&lt;/div&gt;&lt;div&gt;- std::string currentFunctionReturnType&lt;/div&gt;&lt;div&gt;- std::string currentSpeciesName&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="241.25" y="190" width="417.5" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-5" target="i1gnTmM2DgrWp9bDKEA0-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-5" target="i1gnTmM2DgrWp9bDKEA0-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-5" value="&lt;font&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;   &lt;/span&gt;&lt;/span&gt;Methods&lt;/font&gt;&lt;div&gt;&lt;div&gt;&lt;div&gt;&lt;div&gt;- void visitProgram(ProgramNode*)&lt;/div&gt;&lt;div&gt;- void visitStyleInclude(StyleIncludeStmt*)&lt;/div&gt;&lt;div&gt;- void visitGardenDecl(GardenDeclStmt*)&lt;/div&gt;&lt;div&gt;- void visitSpeciesDecl(SpeciesDeclStmt*)&lt;/div&gt;&lt;div&gt;- void visitVisibilityBlock(VisibilityBlockStmt*)&lt;/div&gt;&lt;div&gt;- void visitBlock(BlockStmt*)&lt;/div&gt;&lt;div&gt;- void visitVariableDecl(VariableDeclStmt*)&lt;/div&gt;&lt;div&gt;- void visitFunctionDef(FunctionDefStmt*)&lt;/div&gt;&lt;div&gt;- void visitReturn(ReturnStmt*)&lt;/div&gt;&lt;div&gt;- void visitExpressionStmt(ExpressionStmt*)&lt;/div&gt;&lt;div&gt;- void visitBranch(BranchStmt*)&lt;/div&gt;&lt;div&gt;- void visitIO(IOStmt*)&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;- void error(message)&lt;/div&gt;&lt;div&gt;- string typeOf(expr)&lt;/div&gt;&lt;div&gt;- void visit(node)&lt;/div&gt;&lt;/div&gt;&lt;div&gt;&lt;div&gt;+ void analyze()&lt;/div&gt;&lt;div&gt;+ bool hasErrors()&lt;/div&gt;&lt;div&gt;+ void printErrors()&lt;/div&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="241.25" y="300" width="417.5" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-10" value="abstract&lt;br&gt;ASTNode" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="130" y="730" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-13" value="&lt;font&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;/span&gt;Methods&lt;/font&gt;&lt;div&gt;+ nlohmann::json toJson()&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="20" y="850" width="248.75" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.46;entryY=-0.03;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-10" target="i1gnTmM2DgrWp9bDKEA0-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-17" target="i1gnTmM2DgrWp9bDKEA0-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-17" value="SymbolTable" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="620" y="730" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-19" value="&lt;font&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt; &lt;/span&gt;&amp;nbsp; Attributes&lt;/font&gt;&lt;div&gt;&lt;div&gt;&lt;div&gt;- vector&amp;lt;map&amp;lt;string, SymbolEntry*&amp;gt;&amp;gt; scopes&amp;nbsp;&lt;/div&gt;&lt;div&gt;- int currentLevel&amp;nbsp;&lt;/div&gt;&lt;div&gt;&amp;nbsp;-map&amp;lt;string, vector&amp;lt;SpeciesMemberInfo*&amp;gt;&amp;gt; speciesMembers&amp;nbsp;&lt;/div&gt;&lt;div&gt;- string currentSpeciesContext&lt;/div&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="471.25" y="850" width="417.5" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-20" target="i1gnTmM2DgrWp9bDKEA0-26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-20" value="&lt;font&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;   &lt;/span&gt;&lt;/span&gt;Methods&lt;/font&gt;&lt;div&gt;&lt;div&gt;+ void enterScope()&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ void exitScope()&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ bool define(name, type, kind, visibility, parentSpecies)&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ SymbolEntry* lookup(name)&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ int getCurrentLevel()&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ bool hasSpeciesMember(speciesName, memberName)&amp;nbsp;&lt;/div&gt;&lt;div&gt;+ string getSpeciesMemberType(speciesName, memberName)&lt;/div&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="471.25" y="960" width="417.5" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-23" target="i1gnTmM2DgrWp9bDKEA0-24">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-23" value="SymbolEntry" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="351.25" y="1230" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-24" target="i1gnTmM2DgrWp9bDKEA0-31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-24" target="i1gnTmM2DgrWp9bDKEA0-36">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-24" value="&lt;div&gt;+ std::string name&lt;br/&gt;+ std::string typeName&lt;br/&gt;+ SymbolType kind = SymbolType::UNKNOWN&lt;br/&gt;+ int scopeLevel = 0&lt;br/&gt;+ Visibility visibility = Visibility::DEFAULT&lt;br/&gt;+ std::string parentSpecies = &quot;&quot;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="244.07" y="1340" width="334.37" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-26" target="i1gnTmM2DgrWp9bDKEA0-29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-26" value="SpeciesMemberInfo" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="870" y="1240" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.576;entryY=0.077;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-20" target="i1gnTmM2DgrWp9bDKEA0-23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-29" target="i1gnTmM2DgrWp9bDKEA0-31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-29" target="i1gnTmM2DgrWp9bDKEA0-36">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-29" value="&lt;div&gt;+ std::string name&lt;/div&gt;&lt;div&gt;+ std::string type&lt;/div&gt;&lt;div&gt;+ SymbolType kind&lt;/div&gt;&lt;div&gt;+ Visibility visibility&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="841.4100000000001" y="1370" width="197.18" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-35" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-31" target="i1gnTmM2DgrWp9bDKEA0-34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-31" value="SymbolType" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="458.44" y="1540" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-34" value="&lt;div&gt;+ VARIABLE&lt;/div&gt;&lt;div&gt;+ FUNCTION&lt;/div&gt;&lt;div&gt;+ SPECIES&lt;/div&gt;&lt;div&gt;+ UNKNOWN&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="419.8500000000001" y="1654" width="197.18" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="i1gnTmM2DgrWp9bDKEA0-36" target="i1gnTmM2DgrWp9bDKEA0-37">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-36" value="Visibility" style="rounded=0;whiteSpace=wrap;html=1;spacing=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="841.4100000000001" y="1580" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="i1gnTmM2DgrWp9bDKEA0-37" value="&lt;div&gt;+ PUBLIC = 2&lt;/div&gt;&lt;div&gt;+ PRIVATE = 3&lt;/div&gt;&lt;div&gt;+ PROTECTED = 4&lt;/div&gt;&lt;div&gt;+ DEFAULT = 0&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=16;fontFamily=Times New Roman;" vertex="1" parent="1">
+          <mxGeometry x="802.8200000000002" y="1704" width="197.18" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
