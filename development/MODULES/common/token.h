@@ -26,6 +26,7 @@ enum class TokenType {
 
     // Literals
     IDENTIFIER, NUMBER, STRING, TRUE, FALSE,
+    FLOAT_LITERAL, DOUBLE_LITERAL,
 
     // Operators
     PLUS, MINUS, STAR, SLASH, // Đổi MULTIPLY thành STAR, DIVIDE thành SLASH để nhất quán

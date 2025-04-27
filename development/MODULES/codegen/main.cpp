@@ -76,6 +76,8 @@ protected:
     virtual std::string visitFunctionCallExpr(FunctionCallExpr* node) = 0;
     virtual std::string visitMemberAccessExpr(MemberAccessExpr* node) = 0;
     virtual std::string visitAssignmentStmt(AssignmentStmt* node) = 0;
+    virtual std::string visitFloatLiteralExpr(FloatLiteralExpr* node) = 0;
+    virtual std::string visitDoubleLiteralExpr(DoubleLiteralExpr* node) = 0;
     
     // Generic dispatch using dynamic_cast
      std::string dispatch(ASTNode* node) {
@@ -105,6 +107,8 @@ protected:
          if (auto* p = dynamic_cast<FunctionCallExpr*>(node)) return visitFunctionCallExpr(p);
          if (auto* p = dynamic_cast<MemberAccessExpr*>(node)) return visitMemberAccessExpr(p);
          if (auto* p = dynamic_cast<AssignmentStmt*>(node)) return visitAssignmentStmt(p);
+         if (auto* p = dynamic_cast<FloatLiteralExpr*>(node)) return visitFloatLiteralExpr(p);
+         if (auto* p = dynamic_cast<DoubleLiteralExpr*>(node)) return visitDoubleLiteralExpr(p);
          
          std::cerr << "Error: CodeGen dispatch failed for node type." << std::endl;
          return "/* Error: Unsupported Node */";
@@ -121,6 +125,8 @@ protected:
            if (auto* p = dynamic_cast<FunctionCallExpr*>(node)) return visitFunctionCallExpr(p);
            if (auto* p = dynamic_cast<MemberAccessExpr*>(node)) return visitMemberAccessExpr(p);
            if (auto* p = dynamic_cast<AssignmentStmt*>(node)) return visitAssignmentStmt(p);
+           if (auto* p = dynamic_cast<FloatLiteralExpr*>(node)) return visitFloatLiteralExpr(p);
+           if (auto* p = dynamic_cast<DoubleLiteralExpr*>(node)) return visitDoubleLiteralExpr(p);
            
            std::cerr << "Error: CodeGen dispatch failed for expression type." << std::endl;
            return "/* Error: Unsupported Expression */";

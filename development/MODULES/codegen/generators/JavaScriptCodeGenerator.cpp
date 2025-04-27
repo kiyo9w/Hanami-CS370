@@ -237,6 +237,17 @@ private:
     // --- Expression Visitors ---
      std::string visitIdentifierExpr(IdentifierExpr* node) override { return node->name; }
      std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { return node->value.empty() ? "0" : node->value; }
+     
+     std::string visitFloatLiteralExpr(FloatLiteralExpr* node) override {
+         // JavaScript uses the same number type for int/float/double
+         return node->value;
+     }
+     
+     std::string visitDoubleLiteralExpr(DoubleLiteralExpr* node) override {
+         // JavaScript uses the same number type for int/float/double
+         return node->value;
+     }
+     
      std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
          // JS uses quotes, consider template literals?
           return "\"" + node->value + "\""; 

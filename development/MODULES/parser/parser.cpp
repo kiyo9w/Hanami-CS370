@@ -562,6 +562,12 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
     if (match({TokenType::STRING})) {
         return std::make_unique<StringLiteralExpr>(previous().lexeme);
     }
+    if (match({TokenType::FLOAT_LITERAL})) {
+        return std::make_unique<FloatLiteralExpr>(previous().lexeme);
+    }
+    if (match({TokenType::DOUBLE_LITERAL})) {
+        return std::make_unique<DoubleLiteralExpr>(previous().lexeme);
+    }
 
     if (match({TokenType::IDENTIFIER})) {
          // Handle `std::string` usage

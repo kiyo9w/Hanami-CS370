@@ -386,7 +386,18 @@ private:
     }
     
     std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { 
-        return node->value.empty() ? "0" : node->value; 
+        // Java defaults to int
+        return node->value;
+    }
+    
+    std::string visitFloatLiteralExpr(FloatLiteralExpr* node) override {
+        // Append 'f' for float literals in Java
+        return node->value + "f";
+    }
+    
+    std::string visitDoubleLiteralExpr(DoubleLiteralExpr* node) override {
+        // Double literals are standard in Java
+        return node->value;
     }
     
     std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
