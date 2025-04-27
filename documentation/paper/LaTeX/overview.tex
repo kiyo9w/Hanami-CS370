@@ -1,0 +1,51 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{longtable}
+\geometry{margin=1in}
+
+\title{Overview}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{1. Language Design}
+
+Hanami provides a one-to-one mapping between its “garden” vocabulary and canonical C++ constructs—e.g. \texttt{garden} $\rightarrow$ \texttt{namespace}, \texttt{species} $\rightarrow$ \texttt{class}, \texttt{bloom}/\texttt{water} $\rightarrow$ stream operators. Because all native C++ types, operators, and literals remain valid, users can freely intermix Hanami keywords with regular C++ expressions without extra lowering logic. The shared \texttt{TokenType} enumeration ensures every compiler phase agrees on the same keyword set, preventing drift between stages.
+
+\section*{2. Compiler Pipeline}
+
+\begin{longtable}{|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{6.8cm}|>{\raggedright\arraybackslash}p{4.5cm}|}
+\hline
+\textbf{Stage} & \textbf{Implementation Highlights – What the Stage Does} & \textbf{Output} \\
+\hline
+Lexer – Lexical Analysis & 
+• Reads the character stream once and groups into tokens (names, numbers, strings, operators, Hanami keywords). \newline
+• Ignores single-line and multi-line comments; records exact line/column positions for later error reporting. \newline
+• Detects and reports early errors like invalid characters, unclosed strings, etc. &
+Token list with positions \\
+\hline
+Parser – Recursive-Descent Syntax Analysis &
+• Receives tokens and builds an Abstract Syntax Tree (AST) representing program structure (gardens, species, functions, statements). \newline
+• Uses manual recursive functions, supports panic-mode recovery: on syntax error, skips to synchronization point to continue catching more errors instead of stopping. &
+Serializable AST (JSON) \\
+\hline
+Semantic Analysis + IR &
+• Traverses AST to build symbol tables, apply scoping and visibility rules (open/hidden/guarded), perform static type checks (e.g. disallow \texttt{blossom} in \texttt{void} functions). \newline
+• Labels each AST node with type and ID, emits language-neutral Intermediate Representation (JSON). &
+Rich-context IR (JSON) \\
+\hline
+Code Generation / Transpiler &
+• Consumes the unified IR and, via pluggable visitors, generates source code in C++, Java, Python, and JavaScript. \newline
+• Ensures independent target generation: failure in one target does not affect others. \newline
+• Retains original line numbers so runtime errors in generated code can be traced back to Hanami source. &
+Files: \texttt{.cpp}, \texttt{.java}, \texttt{.py}, \texttt{.js} \\
+\hline
+\end{longtable}
+
+\end{document}
