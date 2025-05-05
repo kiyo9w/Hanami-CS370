@@ -56,6 +56,8 @@ private:
              return "std::string";
         }
         if (hanamiType == "void") return "void";
+        if (hanamiType == "float") return "float";
+        if (hanamiType == "double") return "double";
         // TODO: Map Species names (structs/classes)
         return hanamiType; // Assume species name is C++ class/struct name
     }
@@ -283,7 +285,17 @@ private:
      
      std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
           includes_.insert("#include <string>");
-          return "std::string(\"" + node->value + "\")"; // Construct std::string
+          std::string escapedValue = "";
+          for (char c : node->value) {
+              switch (c) {
+                  case '\\': escapedValue += "\\\\"; break;
+                  case '"': escapedValue += "\\\""; break;
+                  case '\n': escapedValue += "\\n"; break;
+                  // Add other escapes if needed (e.g., \t, \r)
+                  default:   escapedValue += c; break;
+              }
+          }
+          return "std::string(\"" + escapedValue + "\")"; // Construct std::string with escaped value
      }
      std::string visitBooleanLiteralExpr(BooleanLiteralExpr* node) override { return node->value ? "true" : "false"; }
      

@@ -3,22 +3,18 @@
     "statements": [
         {
             "node_type": "StyleIncludeStmt",
-            "path": "\"iostream\""
+            "path": "iostream"
         },
         {
             "node_type": "StyleIncludeStmt",
-            "path": "\"string\""
+            "path": "string"
         },
         {
-            "node_type": "StyleIncludeStmt",
-            "path": "\"vector\""
-        },
-        {
-            "name": "TestGarden",
+            "name": "SimpleGarden",
             "node_type": "GardenDeclStmt"
         },
         {
-            "name": "Pet",
+            "name": "Rose",
             "node_type": "SpeciesDeclStmt",
             "sections": [
                 {
@@ -26,192 +22,71 @@
                         "node_type": "BlockStmt",
                         "statements": [
                             {
-                                "initializer": {
-                                    "node_type": "StringLiteralExpr",
-                                    "value": "Unknown"
+                                "body": {
+                                    "node_type": "BlockStmt",
+                                    "statements": [
+                                        {
+                                            "direction": "STREAM_OUT",
+                                            "expressions": [
+                                                {
+                                                    "node_type": "StringLiteralExpr",
+                                                    "value": "Hello from Hanami Rose!\n"
+                                                }
+                                            ],
+                                            "ioType": "BLOOM",
+                                            "node_type": "IOStmt"
+                                        },
+                                        {
+                                            "node_type": "ReturnStmt",
+                                            "returnValue": null
+                                        }
+                                    ]
                                 },
-                                "node_type": "VariableDeclStmt",
-                                "typeName": "string",
-                                "varName": "name"
-                            },
+                                "name": "sayHello",
+                                "node_type": "FunctionDefStmt",
+                                "parameters": [],
+                                "returnType": "void"
+                            }
+                        ]
+                    },
+                    "node_type": "VisibilityBlockStmt",
+                    "visibility": "OPEN"
+                },
+                {
+                    "block": {
+                        "node_type": "BlockStmt",
+                        "statements": [
                             {
                                 "initializer": {
                                     "node_type": "NumberLiteralExpr",
-                                    "value": "0"
+                                    "value": "42"
                                 },
                                 "node_type": "VariableDeclStmt",
                                 "typeName": "int",
-                                "varName": "age"
+                                "varName": "secretNumber"
                             }
                         ]
                     },
                     "node_type": "VisibilityBlockStmt",
-                    "visibility": 3
+                    "visibility": "HIDDEN"
                 },
                 {
                     "block": {
                         "node_type": "BlockStmt",
                         "statements": [
                             {
-                                "body": {
-                                    "node_type": "BlockStmt",
-                                    "statements": [
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "name",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "name": "newName",
-                                                    "node_type": "IdentifierExpr"
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
-                                        },
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "age",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "name": "newAge",
-                                                    "node_type": "IdentifierExpr"
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
-                                        },
-                                        {
-                                            "direction": 34,
-                                            "expressions": [
-                                                {
-                                                    "node_type": "StringLiteralExpr",
-                                                    "value": "Pet details updated: Name="
-                                                },
-                                                {
-                                                    "name": "name",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                {
-                                                    "node_type": "StringLiteralExpr",
-                                                    "value": ", Age="
-                                                },
-                                                {
-                                                    "name": "age",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                {
-                                                    "node_type": "StringLiteralExpr",
-                                                    "value": "\\n"
-                                                }
-                                            ],
-                                            "ioType": 8,
-                                            "node_type": "IOStmt"
-                                        },
-                                        {
-                                            "node_type": "ReturnStmt",
-                                            "returnValue": null
-                                        }
-                                    ]
+                                "initializer": {
+                                    "node_type": "BooleanLiteralExpr",
+                                    "value": true
                                 },
-                                "name": "setDetails",
-                                "node_type": "FunctionDefStmt",
-                                "parameters": [
-                                    {
-                                        "paramName": "newName",
-                                        "typeName": "string"
-                                    },
-                                    {
-                                        "paramName": "newAge",
-                                        "typeName": "int"
-                                    }
-                                ],
-                                "returnType": "void"
-                            },
-                            {
-                                "body": {
-                                    "node_type": "BlockStmt",
-                                    "statements": [
-                                        {
-                                            "direction": 34,
-                                            "expressions": [
-                                                {
-                                                    "node_type": "StringLiteralExpr",
-                                                    "value": "Woof! My name is "
-                                                },
-                                                {
-                                                    "name": "name",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                {
-                                                    "node_type": "StringLiteralExpr",
-                                                    "value": " and I am "
-                                                },
-                                                {
-                                                    "name": "age",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                {
-                                                    "node_type": "StringLiteralExpr",
-                                                    "value": " year(s) old.\\n"
-                                                }
-                                            ],
-                                            "ioType": 8,
-                                            "node_type": "IOStmt"
-                                        },
-                                        {
-                                            "node_type": "ReturnStmt",
-                                            "returnValue": null
-                                        }
-                                    ]
-                                },
-                                "name": "introduce",
-                                "node_type": "FunctionDefStmt",
-                                "parameters": [],
-                                "returnType": "void"
+                                "node_type": "VariableDeclStmt",
+                                "typeName": "bool",
+                                "varName": "isFriendly"
                             }
                         ]
                     },
                     "node_type": "VisibilityBlockStmt",
-                    "visibility": 2
-                },
-                {
-                    "block": {
-                        "node_type": "BlockStmt",
-                        "statements": [
-                            {
-                                "body": {
-                                    "node_type": "BlockStmt",
-                                    "statements": [
-                                        {
-                                            "node_type": "ReturnStmt",
-                                            "returnValue": {
-                                                "left": {
-                                                    "name": "age",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "BinaryOpExpr",
-                                                "operator": 21,
-                                                "right": {
-                                                    "node_type": "NumberLiteralExpr",
-                                                    "value": "7"
-                                                }
-                                            }
-                                        }
-                                    ]
-                                },
-                                "name": "getAgeInDogYears",
-                                "node_type": "FunctionDefStmt",
-                                "parameters": [],
-                                "returnType": "int"
-                            }
-                        ]
-                    },
-                    "node_type": "VisibilityBlockStmt",
-                    "visibility": 4
+                    "visibility": "GUARDED"
                 }
             ]
         },
@@ -220,112 +95,56 @@
                 "node_type": "BlockStmt",
                 "statements": [
                     {
-                        "direction": 34,
+                        "initializer": null,
+                        "node_type": "VariableDeclStmt",
+                        "typeName": "string",
+                        "varName": "userName"
+                    },
+                    {
+                        "direction": "STREAM_OUT",
                         "expressions": [
                             {
                                 "node_type": "StringLiteralExpr",
-                                "value": "--- Hanami Pet Program Starting ---\\n"
+                                "value": "What's your name?"
                             }
                         ],
-                        "ioType": 8,
+                        "ioType": "BLOOM",
+                        "node_type": "IOStmt"
+                    },
+                    {
+                        "direction": "STREAM_IN",
+                        "expressions": [
+                            {
+                                "name": "userName",
+                                "node_type": "IdentifierExpr"
+                            }
+                        ],
+                        "ioType": "WATER",
                         "node_type": "IOStmt"
                     },
                     {
                         "initializer": null,
                         "node_type": "VariableDeclStmt",
-                        "typeName": "string",
-                        "varName": "ownerName"
-                    },
-                    {
-                        "initializer": {
-                            "node_type": "BooleanLiteralExpr",
-                            "value": false
-                        },
-                        "node_type": "VariableDeclStmt",
-                        "typeName": "bool",
-                        "varName": "nameIsHanami"
-                    },
-                    {
-                        "initializer": {
-                            "node_type": "NumberLiteralExpr",
-                            "value": "0"
-                        },
-                        "node_type": "VariableDeclStmt",
-                        "typeName": "int",
-                        "varName": "calculatedValue"
-                    },
-                    {
-                        "initializer": null,
-                        "node_type": "VariableDeclStmt",
-                        "typeName": "Pet",
-                        "varName": "myDog"
-                    },
-                    {
-                        "expression": {
-                            "arguments": [
-                                {
-                                    "node_type": "StringLiteralExpr",
-                                    "value": "Buddy"
-                                },
-                                {
-                                    "node_type": "NumberLiteralExpr",
-                                    "value": "3"
-                                }
-                            ],
-                            "callee": {
-                                "member": {
-                                    "name": "setDetails",
-                                    "node_type": "IdentifierExpr"
-                                },
-                                "node_type": "MemberAccessExpr",
-                                "object": {
-                                    "name": "myDog",
-                                    "node_type": "IdentifierExpr"
-                                }
-                            },
-                            "node_type": "FunctionCallExpr"
-                        },
-                        "node_type": "ExpressionStmt"
+                        "typeName": "Rose",
+                        "varName": "g"
                     },
                     {
                         "expression": {
                             "arguments": [],
                             "callee": {
                                 "member": {
-                                    "name": "introduce",
+                                    "name": "sayHello",
                                     "node_type": "IdentifierExpr"
                                 },
                                 "node_type": "MemberAccessExpr",
                                 "object": {
-                                    "name": "myDog",
+                                    "name": "g",
                                     "node_type": "IdentifierExpr"
                                 }
                             },
                             "node_type": "FunctionCallExpr"
                         },
                         "node_type": "ExpressionStmt"
-                    },
-                    {
-                        "direction": 34,
-                        "expressions": [
-                            {
-                                "node_type": "StringLiteralExpr",
-                                "value": "What is your name? "
-                            }
-                        ],
-                        "ioType": 8,
-                        "node_type": "IOStmt"
-                    },
-                    {
-                        "direction": 35,
-                        "expressions": [
-                            {
-                                "name": "ownerName",
-                                "node_type": "IdentifierExpr"
-                            }
-                        ],
-                        "ioType": 9,
-                        "node_type": "IOStmt"
                     },
                     {
                         "branches": [
@@ -334,56 +153,28 @@
                                     "node_type": "BlockStmt",
                                     "statements": [
                                         {
-                                            "direction": 34,
+                                            "direction": "STREAM_OUT",
                                             "expressions": [
                                                 {
                                                     "node_type": "StringLiteralExpr",
-                                                    "value": "Welcome, Creator Hanami!\\n"
+                                                    "value": "You have a lovely name!\n"
                                                 }
                                             ],
-                                            "ioType": 8,
+                                            "ioType": "BLOOM",
                                             "node_type": "IOStmt"
-                                        },
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "nameIsHanami",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "node_type": "BooleanLiteralExpr",
-                                                    "value": true
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
-                                        },
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "calculatedValue",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "node_type": "NumberLiteralExpr",
-                                                    "value": "100"
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
                                         }
                                     ]
                                 },
                                 "condition": {
                                     "left": {
-                                        "name": "ownerName",
+                                        "name": "userName",
                                         "node_type": "IdentifierExpr"
                                     },
                                     "node_type": "BinaryOpExpr",
-                                    "operator": 24,
+                                    "operator": "EQUAL",
                                     "right": {
                                         "node_type": "StringLiteralExpr",
-                                        "value": "Hanami"
+                                        "value": "Rose"
                                     }
                                 }
                             },
@@ -392,42 +183,28 @@
                                     "node_type": "BlockStmt",
                                     "statements": [
                                         {
-                                            "direction": 34,
+                                            "direction": "STREAM_OUT",
                                             "expressions": [
                                                 {
                                                     "node_type": "StringLiteralExpr",
-                                                    "value": "Hey, that's my name!\\n"
+                                                    "value": "Another beautiful flower name!\n"
                                                 }
                                             ],
-                                            "ioType": 8,
+                                            "ioType": "BLOOM",
                                             "node_type": "IOStmt"
-                                        },
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "calculatedValue",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "node_type": "NumberLiteralExpr",
-                                                    "value": "50"
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
                                         }
                                     ]
                                 },
                                 "condition": {
                                     "left": {
-                                        "name": "ownerName",
+                                        "name": "userName",
                                         "node_type": "IdentifierExpr"
                                     },
                                     "node_type": "BinaryOpExpr",
-                                    "operator": 24,
+                                    "operator": "EQUAL",
                                     "right": {
                                         "node_type": "StringLiteralExpr",
-                                        "value": "Buddy"
+                                        "value": "Lily"
                                     }
                                 }
                             },
@@ -436,62 +213,23 @@
                                     "node_type": "BlockStmt",
                                     "statements": [
                                         {
-                                            "direction": 34,
+                                            "direction": "STREAM_OUT",
                                             "expressions": [
                                                 {
                                                     "node_type": "StringLiteralExpr",
-                                                    "value": "Nice to meet you, "
+                                                    "value": "Nice to meet you,"
                                                 },
                                                 {
-                                                    "name": "ownerName",
+                                                    "name": "userName",
                                                     "node_type": "IdentifierExpr"
                                                 },
                                                 {
                                                     "node_type": "StringLiteralExpr",
-                                                    "value": "!\\n"
+                                                    "value": "!\n"
                                                 }
                                             ],
-                                            "ioType": 8,
+                                            "ioType": "BLOOM",
                                             "node_type": "IOStmt"
-                                        },
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "nameIsHanami",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "node_type": "BooleanLiteralExpr",
-                                                    "value": false
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
-                                        },
-                                        {
-                                            "expression": {
-                                                "left": {
-                                                    "name": "calculatedValue",
-                                                    "node_type": "IdentifierExpr"
-                                                },
-                                                "node_type": "AssignmentStmt",
-                                                "right": {
-                                                    "arguments": [],
-                                                    "callee": {
-                                                        "member": {
-                                                            "name": "getAgeInDogYears",
-                                                            "node_type": "IdentifierExpr"
-                                                        },
-                                                        "node_type": "MemberAccessExpr",
-                                                        "object": {
-                                                            "name": "myDog",
-                                                            "node_type": "IdentifierExpr"
-                                                        }
-                                                    },
-                                                    "node_type": "FunctionCallExpr"
-                                                }
-                                            },
-                                            "node_type": "ExpressionStmt"
                                         }
                                     ]
                                 },
@@ -499,77 +237,6 @@
                             }
                         ],
                         "node_type": "BranchStmt"
-                    },
-                    {
-                        "expression": {
-                            "left": {
-                                "name": "calculatedValue",
-                                "node_type": "IdentifierExpr"
-                            },
-                            "node_type": "AssignmentStmt",
-                            "right": {
-                                "left": {
-                                    "name": "calculatedValue",
-                                    "node_type": "IdentifierExpr"
-                                },
-                                "node_type": "BinaryOpExpr",
-                                "operator": 19,
-                                "right": {
-                                    "node_type": "NumberLiteralExpr",
-                                    "value": "5"
-                                }
-                            }
-                        },
-                        "node_type": "ExpressionStmt"
-                    },
-                    {
-                        "direction": 34,
-                        "expressions": [
-                            {
-                                "node_type": "StringLiteralExpr",
-                                "value": "Calculated value: "
-                            },
-                            {
-                                "name": "calculatedValue",
-                                "node_type": "IdentifierExpr"
-                            },
-                            {
-                                "node_type": "StringLiteralExpr",
-                                "value": "\\n"
-                            }
-                        ],
-                        "ioType": 8,
-                        "node_type": "IOStmt"
-                    },
-                    {
-                        "direction": 34,
-                        "expressions": [
-                            {
-                                "node_type": "StringLiteralExpr",
-                                "value": "Is owner Hanami? "
-                            },
-                            {
-                                "name": "nameIsHanami",
-                                "node_type": "IdentifierExpr"
-                            },
-                            {
-                                "node_type": "StringLiteralExpr",
-                                "value": "\\n"
-                            }
-                        ],
-                        "ioType": 8,
-                        "node_type": "IOStmt"
-                    },
-                    {
-                        "direction": 34,
-                        "expressions": [
-                            {
-                                "node_type": "StringLiteralExpr",
-                                "value": "--- Hanami Pet Program Ending ---\\n"
-                            }
-                        ],
-                        "ioType": 8,
-                        "node_type": "IOStmt"
                     },
                     {
                         "node_type": "ReturnStmt",

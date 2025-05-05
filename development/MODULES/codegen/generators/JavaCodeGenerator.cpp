@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <map>
 
 class JavaCodeGenerator : public CodeGeneratorVisitor {
 public:
@@ -13,6 +14,7 @@ public:
         std::string gardenName = ""; // Find garden name
         hasMain_ = false;
         indentLevel = 0;
+        currentSpeciesName_ = ""; // Reset context
         
         // Find Garden name
         if(auto* p = dynamic_cast<ProgramNode*>(node)){
@@ -41,25 +43,28 @@ public:
         // Process all AST nodes
         dispatch(node);
         
-        // Add a default main if none was generated from AST
-        if (!hasMain_) {
-            generatedCode_ << getIndent() << "public static void main(String[] args) {\n";
-            indentLevel++;
-            generatedCode_ << getIndent() << "System.out.println(\"Hanami program (no main/grow function found)\");\n";
-            indentLevel--;
-            generatedCode_ << getIndent() << "}\n";
-        }
-         
-        indentLevel--;
-        generatedCode_ << "}\n";
+        // Add the final closing brace for the main class
+        indentLevel--; 
+        generatedCode_ << getIndent() << "}\n";
+        
         return generatedCode_.str();
+    }
+
+    // Getter for the determined class name
+    std::string getClassName() const {
+        return className_; // Return the name calculated in generate()
     }
 
 private:
     std::stringstream generatedCode_;
     std::string className_ = "GeneratedHanamiClass";
+    std::string currentSpeciesName_ = ""; // Track context
     bool hasMain_ = false;
     int indentLevel = 0;
+    // Add a map to store variable types (simple simulation of symbol table info)
+    std::map<std::string, std::string> variableTypes_; 
+    // Map to store member types for each species
+    std::map<std::string, std::map<std::string, std::string>> speciesMemberTypes_;
     
     // Helper method to get proper indentation
     std::string getIndent() {
@@ -69,10 +74,20 @@ private:
     // --- Type Mapping --- 
     std::string mapType(const std::string& hanamiType) {
         if (hanamiType == "int") return "int";
-        if (hanamiType == "bool") return "boolean";
-        if (hanamiType == "string") return "String";
+        if (hanamiType == "bool") return "boolean";  // Java uses boolean
+        if (hanamiType == "string") return "String";  // Java uses String with capital S
         if (hanamiType == "void") return "void";
-        return hanamiType; // Assume species name is Java class name
+        if (hanamiType == "float") return "float";
+        if (hanamiType == "double") return "double";
+        
+        // Capitalize species name for Java class name conventions
+        if (!hanamiType.empty()) {
+            std::string capitalized = hanamiType;
+            capitalized[0] = std::toupper(capitalized[0]);
+            return capitalized;  // Assume species name should be a Java class
+        }
+        
+        return hanamiType;  // Fallback
     }
     
     // --- Operator Mapping ---
@@ -115,7 +130,27 @@ private:
         // Generate a class for the species
         std::string speciesCode;
         speciesCode += getIndent() + "static class " + node->name + " {\n";
+        
+        std::string previousSpeciesName = currentSpeciesName_;
+        currentSpeciesName_ = node->name; // Set context
+        
         indentLevel++;
+        
+        // First pass: Collect member variable types for this species
+        if (speciesMemberTypes_.find(node->name) == speciesMemberTypes_.end()) {
+            speciesMemberTypes_[node->name] = {}; // Ensure map entry exists
+        }
+        for (const auto& section : node->sections) {
+            if (auto* visBlock = dynamic_cast<VisibilityBlockStmt*>(section.get())) {
+                if(visBlock->block){
+                    for (const auto& stmt : visBlock->block->statements) {
+                        if (auto* varDecl = dynamic_cast<VariableDeclStmt*>(stmt.get())) {
+                            speciesMemberTypes_[node->name][varDecl->varName] = mapType(varDecl->typeName);
+                        }
+                    }
+                }
+            }
+        }
         
         // Track the current visibility for member declarations
         TokenType currentVisibility = TokenType::HIDDEN; // Default to private
@@ -158,8 +193,15 @@ private:
                         indentLevel++;
                         // Add function body
                         if (funcDef->body) {
+                           // Store member types before visiting body
+                           if (!node->name.empty() && speciesMemberTypes_.find(node->name) == speciesMemberTypes_.end()) {
+                              speciesMemberTypes_[node->name] = {}; // Ensure map exists
+                           }
                            for(const auto& bodyStmt : funcDef->body->statements){
-                                speciesCode += dispatch(bodyStmt.get());
+                               if (auto* memberVarDecl = dynamic_cast<VariableDeclStmt*>(bodyStmt.get())){
+                                   speciesMemberTypes_[node->name][memberVarDecl->varName] = mapType(memberVarDecl->typeName);
+                               }
+                               speciesCode += dispatch(bodyStmt.get());
                            }
                         }
                         indentLevel--;
@@ -177,6 +219,9 @@ private:
         
         indentLevel--;
         speciesCode += getIndent() + "}\n\n";
+        
+        currentSpeciesName_ = previousSpeciesName; // Restore context
+        
         return speciesCode;
     }
 
@@ -194,6 +239,9 @@ private:
     }
 
     std::string visitVariableDecl(VariableDeclStmt* node) override {
+        // Store type for later lookup (e.g., for input parsing)
+        variableTypes_[node->varName] = mapType(node->typeName);
+
         std::string code = getIndent();
         std::string javaType = mapType(node->typeName);
         code += javaType + " " + node->varName;
@@ -210,54 +258,68 @@ private:
     }
 
     std::string visitFunctionDef(FunctionDefStmt* node) override {
-        std::string code = getIndent();
-        
-        // IMPORTANT FIX: Check specifically for mainGarden function name
-        // This is the entry point for Hanami programs
-        if (node->name == "mainGarden") {
+        std::string code = ""; // Start empty, add indent per line
+        variableTypes_.clear(); // Clear types for new function scope
+
+        // Check if this function should be the Java main method
+        bool isJavaMain = (currentSpeciesName_.empty() && node->name == "mainGarden");
+
+        if (isJavaMain) {
             hasMain_ = true;
-            code += "public static void main(String[] args) {\n";
+            // Ensure it's public static void main(String[] args)
+            code += getIndent() + "public static void main(String[] args) {\n";
             indentLevel++;
-            
-            // Add function body with return value handling if needed
+
+            // Define parameters in variableTypes_ map for main (though usually none)
+            for (const auto& param : node->parameters) {
+                 variableTypes_[param.paramName] = mapType(param.typeName);
+            }
+
+            // Add function body
             if (node->body) {
-                for (const auto& stmt : node->body->statements) {
-                    // For return statements in mainGarden, convert to System.exit()
-                    if (auto* returnStmt = dynamic_cast<ReturnStmt*>(stmt.get())) {
+                for (const auto& stmt_ptr : node->body->statements) {
+                    // Special handling for return in main -> System.exit()
+                    if (auto* returnStmt = dynamic_cast<ReturnStmt*>(stmt_ptr.get())) {
                         if (returnStmt->returnValue) {
                             code += getIndent() + "System.exit(" + dispatchExpr(returnStmt->returnValue.get()) + ");\n";
                         } else {
                             code += getIndent() + "System.exit(0);\n";
                         }
                     } else {
-                        code += dispatch(stmt.get());
+                        // Need to visit the statement to populate variableTypes_ before potential use in IO
+                        // Store the generated code from dispatch temporarily
+                        std::string stmtCode = dispatch(stmt_ptr.get());
+                        code += stmtCode; // Append generated code for the statement
                     }
                 }
             }
-            
+
             indentLevel--;
             code += getIndent() + "}\n\n";
             return code;
-        }
-        // Handle normal function
-        else {
-            code += "public static " + mapType(node->returnType) + " " + node->name + "(";
-            // Add parameters
+        } else { // Handle normal functions/methods
+             bool isStatic = currentSpeciesName_.empty(); // Standalone functions are static
+            code += getIndent();
+            // Determine visibility (simplified: public for now)
+            code += "public ";
+            if (isStatic) code += "static ";
+            code += mapType(node->returnType) + " " + node->name + "(";
+            // Add parameters and store their types
             for (size_t i = 0; i < node->parameters.size(); ++i) {
+                variableTypes_[node->parameters[i].paramName] = mapType(node->parameters[i].typeName);
                 code += mapType(node->parameters[i].typeName) + " " + node->parameters[i].paramName;
                 if (i < node->parameters.size() - 1) code += ", ";
             }
             code += ") {\n";
-            
+
             indentLevel++;
-            
+
             // Add function body
             if (node->body) {
-                for(const auto& stmt : node->body->statements){
-                    code += dispatch(stmt.get());
-                }
+                // Use visitBlock which will dispatch individual statements
+                code += visitBlock(node->body.get());
             }
-            
+
             indentLevel--;
             code += getIndent() + "}\n\n";
             return code;
@@ -326,28 +388,90 @@ private:
     }
 
     std::string visitIO(IOStmt* node) override {
-        std::string code = getIndent();
-        
+        std::string code = ""; // Start empty, add indent per line
+
         if (node->ioType == TokenType::BLOOM) { // Output
-            code += "System.out.print(";
+            code += getIndent() + "System.out.print("; // Add indent here
             for (size_t i = 0; i < node->expressions.size(); ++i) {
-                code += dispatchExpr(node->expressions[i].get());
+                std::string exprCode = dispatchExpr(node->expressions[i].get());
+                // Use the result from dispatchExpr directly (escaping handled by visitStringLiteralExpr)
+                code += exprCode; 
                 if (i < node->expressions.size() - 1) code += " + "; // Concatenate for print
             }
             code += ");\n"; // Use print, handle println via \n in string literal
         } else if (node->ioType == TokenType::WATER) { // Input
-            // Use the static scanner - reads as String, manual conversion may be needed
             for (const auto& expr : node->expressions) {
+                 std::string lineCode = getIndent(); // Indent each assignment line
                 if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr.get())) {
-                    code += ident->name + " = inputScanner.nextLine(); // Reads as String\n";
-                    // TODO: Manual type conversion needed here if target is not String (e.g., Integer.parseInt)
+                    std::string varName = ident->name;
+                    std::string targetType = "";
+
+                    // Check if it's a known member of the current species
+                     std::string mappedSpeciesName = mapType(currentSpeciesName_);
+                    if (!currentSpeciesName_.empty() && speciesMemberTypes_.count(mappedSpeciesName) && speciesMemberTypes_[mappedSpeciesName].count(varName)) {
+                        targetType = speciesMemberTypes_[mappedSpeciesName][varName];
+                        lineCode += "this."; // Assuming member access requires 'this.' implicitly
+                    }
+                    // Otherwise, check if it's a local variable or parameter
+                    else if (variableTypes_.count(varName)) {
+                        targetType = variableTypes_[varName];
+                    }
+                     // If still unknown, targetType remains ""
+
+                    lineCode += varName + " = ";
+                    if (targetType == "int") {
+                        lineCode += "Integer.parseInt(inputScanner.nextLine());\n";
+                    } else if (targetType == "float") {
+                        lineCode += "Float.parseFloat(inputScanner.nextLine());\n";
+                    } else if (targetType == "double") {
+                        lineCode += "Double.parseDouble(inputScanner.nextLine());\n";
+                    } else if (targetType == "boolean") {
+                         lineCode += "Boolean.parseBoolean(inputScanner.nextLine());\n";
+                    } else { // Default to String or completely unknown type
+                         lineCode += "inputScanner.nextLine(); // Assumed String or unknown type ('"+targetType+"')\n";
+                    }
+                } else if (MemberAccessExpr* member = dynamic_cast<MemberAccessExpr*>(expr.get())) {
+                    // Determine object type (using heuristic)
+                    std::string objectTypeName = "";
+                     // First check if the object is an identifier we know the type of
+                    if(IdentifierExpr* objIdent = dynamic_cast<IdentifierExpr*>(member->object.get())){
+                        if(variableTypes_.count(objIdent->name)){
+                            objectTypeName = variableTypes_[objIdent->name]; // Get mapped Java type
+                        }
+                    }
+                     // If we couldn't determine type, objectTypeName remains ""
+
+                    std::string objectName = dispatchExpr(member->object.get());
+                    std::string memberName = member->member->name;
+                    std::string memberType = ""; // Default to unknown
+
+                    // Lookup member type in the species map using the determined object type name
+                    if (!objectTypeName.empty() && speciesMemberTypes_.count(objectTypeName)) {
+                         if(speciesMemberTypes_[objectTypeName].count(memberName)){
+                             memberType = speciesMemberTypes_[objectTypeName][memberName];
+                         }
+                    }
+
+                    // Generate assignment with appropriate parser
+                    lineCode += objectName + "." + memberName + " = ";
+                    if (memberType == "int") {
+                        lineCode += "Integer.parseInt(inputScanner.nextLine());\n";
+                    } else if (memberType == "float") {
+                        lineCode += "Float.parseFloat(inputScanner.nextLine());\n";
+                    } else if (memberType == "double") {
+                        lineCode += "Double.parseDouble(inputScanner.nextLine());\n";
+                    } else if (memberType == "boolean") {
+                         lineCode += "Boolean.parseBoolean(inputScanner.nextLine());\n";
+                    } else { // Default to String or unknown type
+                         lineCode += "inputScanner.nextLine(); // Reads as String, member type ('" + memberType + "') unknown or String\n";
+                    }
+                } else {
+                    lineCode += "/* Error: Cannot read input into non-variable */\n";
                 }
-                else { 
-                    code += "/* Error: Cannot read input into non-variable */\n";
-                }
+                code += lineCode; // Append the generated line
             }
         }
-        
+
         return code;
     }
     
@@ -377,6 +501,12 @@ private:
         else if (auto* assign = dynamic_cast<AssignmentStmt*>(expr)) {
             return visitAssignmentStmt(assign);
         }
+        else if (auto* flt = dynamic_cast<FloatLiteralExpr*>(expr)) {
+            return visitFloatLiteralExpr(flt);
+        }
+        else if (auto* dbl = dynamic_cast<DoubleLiteralExpr*>(expr)) {
+            return visitDoubleLiteralExpr(dbl);
+        }
         return "/* Unknown expression */";
     }
     
@@ -401,7 +531,17 @@ private:
     }
     
     std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
-        return "\"" + node->value + "\""; 
+        std::string escapedValue = "";
+        for (char c : node->value) {
+            switch (c) {
+                case '\\': escapedValue += "\\\\"; break; // Backslash escape
+                case '"': escapedValue += "\\\""; break; // Double quote escape
+                case '\n': escapedValue += "\\n"; break; // Newline escape
+                // Removed other cases
+                default:   escapedValue += c; break; // Corrected variable name
+            }
+        }
+        return "\"" + escapedValue + "\""; 
     }
     
     std::string visitBooleanLiteralExpr(BooleanLiteralExpr* node) override { 

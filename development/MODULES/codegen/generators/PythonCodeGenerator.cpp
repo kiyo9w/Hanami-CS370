@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 
 class PythonCodeGenerator : public CodeGeneratorVisitor {
 public:
@@ -11,7 +12,9 @@ public:
         generatedCode_.clear();
         indentLevel = 0;
         hasMain_ = false;
+        mainFunctionName_ = ""; // Store the actual main function name found
         currentSpeciesName_ = ""; // Reset context
+        currentFuncParams_.clear(); // Clear params
         
         // Add imports if needed (e.g., for specific functionality)
         // generatedCode_ << "import sys\n\n";
@@ -21,8 +24,8 @@ public:
         // Add main guard if a main function was found
         if (hasMain_) {
              generatedCode_ << "\n\nif __name__ == \"__main__\":\n";
-             // Assuming main function is named main or mainGarden
-             generatedCode_ << "    mainGarden() # Or main() depending on the Hanami code\n";
+             // Call the specific main function identified
+             generatedCode_ << "    " << mainFunctionName_ << "()\n";
         }
         
         return generatedCode_.str();
@@ -31,10 +34,22 @@ public:
 private:
     std::stringstream generatedCode_;
     bool hasMain_ = false;
+    std::string mainFunctionName_ = ""; // Added
     std::string currentSpeciesName_; // Track if inside a class
+    std::set<std::string> currentFuncParams_; // Added: Track current func params
 
     // --- Type Mapping (Python is dynamically typed, less critical) ---
-    // std::string mapType(const std::string& hanamiType) { return ""; }
+    std::string mapType(const std::string& hanamiType) {
+        // Python doesn't use type declarations in the same way,
+        // but this is useful for generating type hints and comments
+        if (hanamiType == "int") return "int";
+        if (hanamiType == "bool") return "bool";
+        if (hanamiType == "string") return "str";
+        if (hanamiType == "void") return "None";
+        if (hanamiType == "float") return "float";
+        if (hanamiType == "double") return "float";  // Python uses a single float type
+        return hanamiType; // Assume species name is Python class
+    }
     
     // --- Operator Mapping ---
     std::string mapBinaryOperator(TokenType op) {
@@ -146,12 +161,24 @@ private:
     }
 
     std::string visitVariableDecl(VariableDeclStmt* node) override {
-        // Python is dynamically typed, so type name is ignored.
+        // Python is dynamically typed, so type name is ignored for declaration.
         std::string code = getIndent() + node->varName;
         if (node->initializer) {
             code += " = " + dispatchExpr(node->initializer.get());
         } else {
-             code += " = None"; // Initialize to None if no initializer
+             // Initialize based on scope and type name convention
+             // Check if it's likely a class instantiation (capitalized type name)
+             if (!currentSpeciesName_.empty()) { // Inside a class -> handled by __init__
+                  // This shouldn't be called for member variables directly,
+                  // as they are initialized in __init__.
+                  // If called, it might be a local variable inside a method.
+                 code += " = None";
+             } else if (!node->typeName.empty() && std::isupper(node->typeName[0])){
+                 // Likely a class type in global/main scope
+                 code += " = " + mapType(node->typeName) + "()"; // Instantiate class
+             } else {
+                  code += " = None"; // Default for other types or non-class locals
+             }
         }
         code += "\n";
         return code;
@@ -159,9 +186,12 @@ private:
 
     std::string visitFunctionDef(FunctionDefStmt* node) override {
          bool isMethod = !currentSpeciesName_.empty();
+         currentFuncParams_.clear(); // Clear params from previous function
+         
          // Handle main specially
-         if (node->name == "mainGarden" || node->name == "main") {
+         if (!isMethod && (node->name == "mainGarden" || node->name == "main")) {
             hasMain_ = true;
+            mainFunctionName_ = node->name; // Store the exact name used
          }
          
          std::string code = getIndent() + "def " + node->name + "(";
@@ -172,6 +202,7 @@ private:
          
          for (size_t i = 0; i < node->parameters.size(); ++i) {
             code += node->parameters[i].paramName;
+            currentFuncParams_.insert(node->parameters[i].paramName); // Store param name
             if (i < node->parameters.size() - 1) code += ", ";
          }
          code += "):\n";
@@ -187,6 +218,8 @@ private:
          }
          indentLevel--;
          code += "\n"; // Add a blank line after function def
+         
+         currentFuncParams_.clear(); // Clear params after visiting function
          return code;
     }
 
@@ -255,9 +288,17 @@ private:
                code += ", end='')\n"; // Avoid default newline from print
           } else if (node->ioType == TokenType::WATER) { // Input
                for (const auto& expr : node->expressions) {
+                    // Check if assigning to a member variable
+                    std::string targetVar = "";
                     if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr.get())) {
-                         code += getIndent() + ident->name + " = input()\n";
-                         // Might need int(input()), etc. based on expected type
+                        if (!currentSpeciesName_.empty() && 
+                            currentFuncParams_.find(ident->name) == currentFuncParams_.end())
+                        {
+                             targetVar = "self." + ident->name;
+                        } else {
+                             targetVar = ident->name;
+                        }
+                         code += getIndent() + targetVar + " = input() # TODO: Add type conversion if needed (e.g., int(), float())\n";
                     } else { 
                         code += getIndent() + "# Error: Cannot read input into non-variable\n";
                     }
@@ -268,17 +309,15 @@ private:
     
     // --- Expression Visitors ---
      std::string visitIdentifierExpr(IdentifierExpr* node) override {
-         // Prepend "self." if inside a class method and it's likely a member variable
-         // This is a heuristic - real compiler needs symbol table info
-         if (!currentSpeciesName_.empty()) {
-             // Simple check: if not a parameter (assumed to be defined in outer scope)
-             // This is flawed - needs actual symbol table lookup
-             bool isLikelyMember = true; 
-             // TODO: Check if node->name is in function parameters
-             
-             if (isLikelyMember && (node->name == "name" || node->name == "age")) { // Hardcoded for now!
-                 return "self." + node->name;
-             }
+         // Prepend "self." if inside a class method and the identifier
+         // is not a parameter of the current function.
+         if (!currentSpeciesName_.empty() && 
+             currentFuncParams_.find(node->name) == currentFuncParams_.end()) 
+         {
+              // Simple check: Assume it's a member if not a parameter
+              // This is still a heuristic - needs symbol table info for accuracy
+             // Let's apply it for now
+             return "self." + node->name;
          }
           return node->name; 
      }
@@ -293,7 +332,17 @@ private:
      }
      std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
          // Python uses quotes, escapes might need translation
-          return "\"" + node->value + "\""; 
+          std::string escapedValue = "";
+          for (char c : node->value) {
+              switch (c) {
+                  case '\\': escapedValue += "\\\\"; break;
+                  case '"': escapedValue += "\\\""; break;
+                  case '\n': escapedValue += "\\n"; break;
+                  // Add other escapes if needed (e.g., \t, \r)
+                  default:   escapedValue += c; break;
+              }
+          }
+          return "\"" + escapedValue + "\""; 
      }
      std::string visitBooleanLiteralExpr(BooleanLiteralExpr* node) override { return node->value ? "True" : "False"; } // Capitalized
      
@@ -318,7 +367,21 @@ private:
      }
      
       std::string visitAssignmentStmt(AssignmentStmt* node) override {
-          return dispatchExpr(node->left.get()) + " = " + dispatchExpr(node->right.get());
+          std::string leftCode;
+          // Check if the left side is an identifier that needs `self.`
+          if(IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(node->left.get())) {
+              if (!currentSpeciesName_.empty() && 
+                  currentFuncParams_.find(ident->name) == currentFuncParams_.end()) 
+              {
+                  leftCode = "self." + ident->name;
+              } else {
+                  leftCode = ident->name;
+              }
+          } else {
+              // Handle other L-values like member access (a.b = ...) if needed
+              leftCode = dispatchExpr(node->left.get()); 
+          }
+          return leftCode + " = " + dispatchExpr(node->right.get());
       }
 
     std::string visitWhileStmt(WhileStmt* node) override {

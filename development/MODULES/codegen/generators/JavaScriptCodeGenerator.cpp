@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 
 class JavaScriptCodeGenerator : public CodeGeneratorVisitor {
 public:
@@ -20,9 +21,19 @@ public:
 private:
     std::stringstream generatedCode_;
     std::string currentSpeciesName_; // Track if inside a class
+    std::set<std::string> currentFuncParams_; // Added: Track current func params
 
     // --- Type Mapping (JS is dynamically typed) ---
-    // std::string mapType(const std::string& hanamiType) { return ""; }
+    std::string mapType(const std::string& hanamiType) {
+        // JavaScript is dynamically typed, but useful for comments
+        if (hanamiType == "int") return "number";
+        if (hanamiType == "bool") return "boolean";
+        if (hanamiType == "string") return "string";
+        if (hanamiType == "void") return "void";
+        if (hanamiType == "float") return "number";
+        if (hanamiType == "double") return "number";
+        return hanamiType; // Assume species name is JS class
+    }
     
     // --- Operator Mapping ---
     std::string mapBinaryOperator(TokenType op) {
@@ -127,17 +138,25 @@ private:
         std::string code = getIndent();
         // Use let/const? Defaulting to let.
         code += "let " + node->varName;
-        if (node->initializer) {
-            code += " = " + dispatchExpr(node->initializer.get());
-        } else {
-             code += " = undefined"; // Or null?
-        }
-        code += ";\n";
-        return code;
+         if (node->initializer) {
+             code += " = " + dispatchExpr(node->initializer.get());
+         } else {
+            // Initialize based on type name convention
+            if (!currentSpeciesName_.empty()) { // Inside class -> handled by constructor
+                code += "; // Initialized in constructor"; 
+            } else if (!node->typeName.empty() && std::isupper(node->typeName[0])){
+                code += " = new " + mapType(node->typeName) + "()"; // Instantiate class
+            } else {
+                 code += " = undefined"; // Default for others
+            }
+         }
+         code += ";\n";
+         return code;
     }
 
     std::string visitFunctionDef(FunctionDefStmt* node) override {
          bool isMethod = !currentSpeciesName_.empty();
+         currentFuncParams_.clear(); // Clear params from previous function
          
          std::string code = getIndent();
          // Method syntax in JS: just name(params) { body }
@@ -149,6 +168,7 @@ private:
          
          for (size_t i = 0; i < node->parameters.size(); ++i) {
             code += node->parameters[i].paramName;
+            currentFuncParams_.insert(node->parameters[i].paramName); // Store param name
             if (i < node->parameters.size() - 1) code += ", ";
          }
          code += ") {\n";
@@ -158,6 +178,8 @@ private:
          }
          indentLevel--;
          code += getIndent() + "}\n\n";
+         
+         currentFuncParams_.clear(); // Clear params after visiting function
          return code;
     }
 
@@ -224,8 +246,13 @@ private:
                  for (const auto& expr : node->expressions) {
                     if (IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(expr.get())) {
                          // Assign directly, assuming var declared elsewhere
-                         code += getIndent() + ident->name + " = prompt(); // Reads as string\n"; 
+                         code += getIndent() + ident->name + " = parseFloat(prompt()); // Reads string, parses to float\n"; 
                          // TODO: Add parsing based on expected type? parseInt, parseFloat?
+                    } else if (MemberAccessExpr* member = dynamic_cast<MemberAccessExpr*>(expr.get())) {
+                        // Similar logic for member access - reads as string for now
+                        std::string objectName = dispatchExpr(member->object.get()); 
+                        std::string memberName = member->member->name;
+                        code += getIndent() + objectName + "." + memberName + " = parseFloat(prompt()); // Reads string, parses to float\n"; 
                     } else { 
                         code += getIndent() + "/* Error: Cannot read input into non-variable */\n";
                     }
@@ -235,7 +262,15 @@ private:
     }
     
     // --- Expression Visitors ---
-     std::string visitIdentifierExpr(IdentifierExpr* node) override { return node->name; }
+     std::string visitIdentifierExpr(IdentifierExpr* node) override { 
+        // Prepend "this." if inside a class method and not a parameter
+        if (!currentSpeciesName_.empty() && 
+            currentFuncParams_.find(node->name) == currentFuncParams_.end()) 
+        {
+            return "this." + node->name;
+        }
+        return node->name; 
+    }
      std::string visitNumberLiteralExpr(NumberLiteralExpr* node) override { return node->value.empty() ? "0" : node->value; }
      
      std::string visitFloatLiteralExpr(FloatLiteralExpr* node) override {
@@ -250,7 +285,17 @@ private:
      
      std::string visitStringLiteralExpr(StringLiteralExpr* node) override { 
          // JS uses quotes, consider template literals?
-          return "\"" + node->value + "\""; 
+          std::string escapedValue = "";
+          for (char c : node->value) {
+              switch (c) {
+                  case '\\': escapedValue += "\\\\"; break;
+                  case '"': escapedValue += "\\\""; break;
+                  case '\n': escapedValue += "\\n"; break;
+                  // Add other escapes if needed (e.g., \t, \r, ')
+                  default:   escapedValue += c; break;
+              }
+          }
+          return "\"" + escapedValue + "\""; 
      }
      std::string visitBooleanLiteralExpr(BooleanLiteralExpr* node) override { return node->value ? "true" : "false"; }
      
@@ -278,7 +323,21 @@ private:
       std::string visitAssignmentStmt(AssignmentStmt* node) override {
           // Need to handle var/let/const declaration if LHS is just identifier?
           // Assuming variable already declared for assignment expressions.
-          return dispatchExpr(node->left.get()) + " = " + dispatchExpr(node->right.get());
+          std::string leftCode;
+          // Check if the left side is an identifier that needs `this.`
+          if(IdentifierExpr* ident = dynamic_cast<IdentifierExpr*>(node->left.get())) {
+              if (!currentSpeciesName_.empty() && 
+                  currentFuncParams_.find(ident->name) == currentFuncParams_.end()) 
+              {
+                  leftCode = "this." + ident->name;
+              } else {
+                  leftCode = ident->name;
+              }
+          } else {
+              // Handle other L-values like member access 
+              leftCode = dispatchExpr(node->left.get()); 
+          }
+          return leftCode + " = " + dispatchExpr(node->right.get());
       }
 
     std::string visitWhileStmt(WhileStmt* node) override {

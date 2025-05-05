@@ -215,7 +215,8 @@ int main(int argc, char* argv[]) {
 
     // Generate Java
     std::string javaCode = javaGen.generate(programRoot);
-    success &= writeToFile(outputDir + "output.java", javaCode);
+    std::string javaClassName = javaGen.getClassName();
+    success &= writeToFile(outputDir + javaClassName + ".java", javaCode);
 
     // Generate Python
     std::string pythonCode = pythonGen.generate(programRoot);
