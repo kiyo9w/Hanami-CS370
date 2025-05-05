@@ -3,38 +3,50 @@ style <string>
 
 garden SimpleGarden
 
-species Rose {
-open:
-    grow sayHello() -> void {
-        bloom << "Hello from Hanami Rose!\n";
-        blossom;
-    }
-
+species CalAveragePoint {
 hidden:
-    int secretNumber = 42;
-
-guarded:
-    bool isFriendly = true;
+    float averagePoint;
+    float mathScore;
+    string title;
+    float EnglishScore;
+    
+open: 
+    grow TakingPoint() -> void {
+        bloom << "Enter math point: ";
+        water >> mathScore;
+        bloom << "Enter English point: ";
+        water >> EnglishScore;
+    }
+    
+    grow CalAveragePoint() -> float {
+        averagePoint = (mathScore + EnglishScore) / 2.0;
+        blossom averagePoint;
+    }
+    
+    grow printingTitle() -> string {
+        branch (averagePoint > 9.0) {
+            title = "Excellent";
+        } 
+        else branch (averagePoint > 7.0) {
+            title = "Good";
+        } 
+        else branch (averagePoint > 5.0) {
+            title = "Average";
+        } 
+        else {
+            title = "Bad";
+        }
+        blossom title;
+    }
 };
 
-grow mainGarden() -> int {
-    std::string userName;
-
-    bloom << "What's your name? ";
-    water >> userName;
-
-    Rose g;
-    g.sayHello();
-
-    branch (userName == "Rose") {
-        bloom << "You have a lovely name!\n";
-    }
-    else branch (userName == "Lily") {
-        bloom << "Another beautiful flower name!\n";
-    }
-    else {
-        bloom << "Nice to meet you, " << userName << "!\n";
-    }
-
+grow main() -> int {
+    CalAveragePoint student;
+    student.TakingPoint();
+    
+    float avg = student.CalAveragePoint();
+    bloom << "Student average point is " << avg << "\n";
+    bloom << "The title is " << student.printingTitle() << "\n";
+    
     blossom 0;
-} 
+}

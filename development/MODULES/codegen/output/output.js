@@ -1,59 +1,35 @@
 // Generated Hanami Code (JavaScript)
 
-// Garden: TestGarden
-class Pet {
+// Garden: SimpleGarden
+class Rose {
     constructor() {
-      this.name = "Unknown";
-      this.age = 0;
+      this.secretNumber = 42;
+      this.isFriendly = true;
     }
 
-    setDetails(newName, newAge) {
-        name = newName;
-        age = newAge;
-        console.log("Pet details updated: Name=" + name + ", Age=" + age + "\n");
+    sayHello() {
+        console.log("Hello from Hanami Rose!\n");
         return;
-    }
-
-    introduce() {
-        console.log("Woof! My name is " + name + " and I am " + age + " year(s) old.\n");
-        return;
-    }
-
-    getAgeInDogYears() {
-        return (age * 7);
     }
 
 }
 
 function mainGarden() {
-    console.log("--- Hanami Pet Program Starting ---\n");
-    let ownerName = undefined;
-    let nameIsHanami = false;
-    let calculatedValue = 0;
-    let myDog = undefined;
-    myDog.setDetails("Buddy", 3);
-    myDog.introduce();
-    console.log("What is your name? ");
+    let userName = undefined;
+    console.log("What's your name?");
     // Basic input using prompt:
-    ownerName = prompt(); // Reads as string
-    if ((ownerName === "Hanami")) {
-        console.log("Welcome, Creator Hanami!\n");
-        nameIsHanami = true;
-        calculatedValue = 100;
+    userName = parseFloat(prompt()); // Reads string, parses to float
+    let g = new Rose();
+    g.sayHello();
+    if ((userName === "Rose")) {
+        console.log("You have a lovely name!\n");
     }
-    else if ((ownerName === "Buddy")) {
-        console.log("Hey, that's my name!\n");
-        calculatedValue = 50;
+    else if ((userName === "Lily")) {
+        console.log("Another beautiful flower name!\n");
     }
     else {
-        console.log("Nice to meet you, " + ownerName + "!\n");
-        nameIsHanami = false;
-        calculatedValue = myDog.getAgeInDogYears();
+        console.log("Nice to meet you," + userName + "!\n");
     }
-    calculatedValue = (calculatedValue + 5);
-    console.log("Calculated value: " + calculatedValue + "\n");
-    console.log("Is owner Hanami? " + nameIsHanami + "\n");
-    console.log("--- Hanami Pet Program Ending ---\n");
     return 0;
 }
 

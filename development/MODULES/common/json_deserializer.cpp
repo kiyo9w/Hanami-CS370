@@ -20,6 +20,10 @@ std::unique_ptr<Expression> expressionFromJson(const nlohmann::json& j) {
             return std::make_unique<StringLiteralExpr>(j.at("value").get<std::string>());
         } else if (node_type == "BooleanLiteralExpr") {
             return std::make_unique<BooleanLiteralExpr>(j.at("value").get<bool>());
+        } else if (node_type == "FloatLiteralExpr") {
+            return std::make_unique<FloatLiteralExpr>(j.at("value").get<std::string>());
+        } else if (node_type == "DoubleLiteralExpr") {
+            return std::make_unique<DoubleLiteralExpr>(j.at("value").get<std::string>());
         } else if (node_type == "BinaryOpExpr") {
             auto left = expressionFromJson(j.at("left"));
             auto right = expressionFromJson(j.at("right"));

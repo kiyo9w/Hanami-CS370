@@ -10,6 +10,9 @@ OBJS = main.o
 # Target executable
 TARGET = semantic_analyzer_executable
 
+# Default input file
+INPUT_FILE ?= input/input.ast
+
 # Common directory
 COMMON_DIR = ../common
 
@@ -37,7 +40,7 @@ $(TARGET): $(OBJS) $(COMMON_OBJS)
 %.o: %.cpp %.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-main.o: main.cpp
+main.o: semananaly.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Clean rule
@@ -49,10 +52,10 @@ ifeq ($(OS),Windows_NT)
 	-if exist "..\output\*.ir" $(RM) "..\output\*.ir"
 	-if exist "$(WIN_COMMON_OBJS)" $(RM) "$(WIN_COMMON_OBJS)"
 else
-	$(RM) *.o $(TARGET) ../output/*.ir $(COMMON_OBJS)
+	$(RM) $(OBJS) $(TARGET) output/*.ir
 endif
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(INPUT_FILE)
 	
-.PHONY: all clean
+.PHONY: all clean run

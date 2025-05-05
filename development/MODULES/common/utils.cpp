@@ -95,13 +95,35 @@ TokenType stringToTokenType(const std::string& str) {
         {"DOT", TokenType::DOT}, {"COLON", TokenType::COLON},
         {"COMMENT", TokenType::COMMENT}, {"EOF_TOKEN", TokenType::EOF_TOKEN},
         {"ERROR", TokenType::ERROR},
-        {"STYLE_INCLUDE", TokenType::STYLE_INCLUDE}, {"SCOPE_RESOLUTION", TokenType::SCOPE_RESOLUTION}
+        {"STYLE_INCLUDE", TokenType::STYLE_INCLUDE}, {"SCOPE_RESOLUTION", TokenType::SCOPE_RESOLUTION},
+        {"UNKNOWN", TokenType::ERROR}, // Map UNKNOWN to ERROR for compatibility
+        {"FLOAT_LITERAL", TokenType::FLOAT_LITERAL}, // Make sure these are included
+        {"DOUBLE_LITERAL", TokenType::DOUBLE_LITERAL}
     };
 
     auto it = map.find(str);
     if (it != map.end()) {
         return it->second;
     } 
+    
+    // Handle numeric token types by their integer value (for token files that use numbers)
+    try {
+        int tokenValue = std::stoi(str);
+        // Map token values to enum values based on the order in the TokenType enum
+        if (tokenValue == static_cast<int>(TokenType::FLOAT_LITERAL)) {
+            return TokenType::FLOAT_LITERAL;
+        }
+        if (tokenValue == static_cast<int>(TokenType::DOUBLE_LITERAL)) {
+            return TokenType::DOUBLE_LITERAL;
+        }
+        if (tokenValue == static_cast<int>(TokenType::NUMBER)) {
+            return TokenType::NUMBER;
+        }
+        // Add more mappings if needed
+    } catch (const std::invalid_argument&) {
+        // Not a number, continue with error handling
+    }
+    
     // Throw an exception for unknown strings, as this likely indicates an AST format error
     // or an incomplete mapping.
     throw std::runtime_error("Unknown token type string encountered during conversion: " + str);

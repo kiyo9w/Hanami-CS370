@@ -51,8 +51,7 @@ TokenType stringToTokenType(const std::string& typeStr) {
 }
 */
 
-// Function to read tokens from the specified file format
-// Function to read tokens from the specified file format
+// Function to read tokens from the specified file format (simplified)
 std::vector<Token> readTokensFromFile(const std::string& filename) {
     std::ifstream inFile(filename);
     if (!inFile) {
@@ -65,62 +64,105 @@ std::vector<Token> readTokensFromFile(const std::string& filename) {
 
     while (std::getline(inFile, line)) {
         currentLineNum++;
-        std::stringstream ss(line);
+        line.erase(0, line.find_first_not_of(" \t\n\r")); // Trim leading
+        line.erase(line.find_last_not_of(" \t\n\r") + 1); // Trim trailing
+        if (line.empty()) {
+            continue;
+        }
+
         std::string tokenTypeStr;
-        std::string lexeme = "";
+        std::string lexemeStr = "";
         int tokenLine = 0;
         int tokenColumn = 0;
 
-        // Đọc loại token (như "STYLE", "IDENTIFIER", "STRING", v.v.)
-        ss >> tokenTypeStr;
-        if (ss.fail()) {
-            std::cerr << "Warning: Failed to read token type on line " << currentLineNum << " of " << filename << std::endl;
+        // 1. Find the last space (must exist before column number)
+        size_t lastSpacePos = line.find_last_of(" \t");
+        if (lastSpacePos == std::string::npos) {
+            std::cerr << "Warning [L" << currentLineNum << "]: Malformed token line (no space before line/col?): '" << line << "'" << std::endl;
             continue;
         }
 
-        TokenType type = stringToTokenType(tokenTypeStr);
+        // 2. Extract Column Number
+        try {
+            tokenColumn = std::stoi(line.substr(lastSpacePos + 1));
+        } catch (...) {
+            std::cerr << "Warning [L" << currentLineNum << "]: Malformed token line (invalid column number?): '" << line << "'" << std::endl;
+            continue;
+        }
 
-        // Đọc lexeme nếu token là loại cần lexeme
-        if (type == TokenType::IDENTIFIER || type == TokenType::NUMBER || 
-            type == TokenType::STRING || type == TokenType::STYLE_INCLUDE) {
-            // Đối với STRING và STYLE_INCLUDE, lexeme có thể được bao quanh bởi dấu ngoặc kép
-            char nextChar = ss.peek();
-            while(isspace(nextChar)) {
-                ss.ignore();
-                nextChar = ss.peek();
-            }
-            
-            if (type == TokenType::STRING || type == TokenType::STYLE_INCLUDE) {
-                if (nextChar == '"') {
-                    ss >> std::quoted(lexeme); // Đọc chuỗi trong dấu ngoặc kép
-                } else {
-                    ss >> lexeme; // Đọc bình thường nếu không có dấu ngoặc kép
-                }
-            } else {
-                ss >> lexeme; // Đọc lexeme thông thường cho IDENTIFIER hoặc NUMBER
-            }
-            
-            if (ss.fail()) {
-                std::cerr << "Warning: Failed to read lexeme for " << tokenTypeStr << " on line " << currentLineNum << std::endl;
+        // 3. Find the second-to-last space (must exist before line number)
+        size_t secondLastSpacePos = line.find_last_of(" \t", lastSpacePos - 1);
+        if (secondLastSpacePos == std::string::npos) {
+            std::cerr << "Warning [L" << currentLineNum << "]: Malformed token line (no space before line number?): '" << line << "'" << std::endl;
                 continue;
             }
-        }
 
-        // Đọc số dòng và số cột
-        ss >> tokenLine >> tokenColumn;
-        if (ss.fail()) {
-            std::cerr << "Warning: Failed to read line/column numbers for token on line " << currentLineNum << " of " << filename << std::endl;
+        // 4. Extract Line Number
+        try {
+            tokenLine = std::stoi(line.substr(secondLastSpacePos + 1, lastSpacePos - (secondLastSpacePos + 1)));
+        } catch (...) {
+            std::cerr << "Warning [L" << currentLineNum << "]: Malformed token line (invalid line number?): '" << line << "'" << std::endl;
             continue;
         }
 
-        tokens.push_back({type, lexeme, tokenLine, tokenColumn});
+        // 5. Extract Token Type and Potential Lexeme
+        TokenType currentType; // Declare outside if/else
+        size_t firstSpacePos = line.find_first_of(" \\t");
+        if (firstSpacePos == std::string::npos || firstSpacePos >= secondLastSpacePos) {
+            // No space between type and line number -> No lexeme
+            tokenTypeStr = line.substr(0, secondLastSpacePos + 1);
+            tokenTypeStr.erase(tokenTypeStr.find_last_not_of(" \\t") + 1); // Trim trailing spaces
+            lexemeStr = "";
+            currentType = stringToTokenType(tokenTypeStr); // Assign type here too
+        } else {
+            // Space found -> Assume Type is before first space, Lexeme is between first and second-to-last space
+            tokenTypeStr = line.substr(0, firstSpacePos);
+            lexemeStr = line.substr(firstSpacePos + 1, secondLastSpacePos - firstSpacePos); // Original length calculation
+            
+            // Trim BOTH leading and trailing whitespace unconditionally first
+            while (!lexemeStr.empty() && std::isspace(lexemeStr.front())) {
+                lexemeStr.erase(0, 1); // Remove leading space
+            }
+            while (!lexemeStr.empty() && std::isspace(lexemeStr.back())) {
+                lexemeStr.pop_back(); // Remove trailing space
+            }
+            
+            // Convert string to TokenType enum
+            currentType = stringToTokenType(tokenTypeStr);
+            
+            // Unescape ONLY if it's a string literal
+            if (currentType == TokenType::STRING) {
+                 std::string temp_lexeme;
+                 temp_lexeme.reserve(lexemeStr.length());
+                 for(size_t i = 0; i < lexemeStr.length(); ++i){
+                     if(lexemeStr[i] == '\\' && i + 1 < lexemeStr.length()){
+                         char nextChar = lexemeStr[++i]; // Consume slash, get next char
+                         switch (nextChar) {
+                             case '\"': temp_lexeme += '\"'; break;
+                             case '\\': temp_lexeme += '\\'; break;
+                             case 'n': temp_lexeme += '\n'; break;
+                             case 'r': temp_lexeme += '\r'; break;
+                             case 't': temp_lexeme += '\t'; break;
+                             default: // Not a known escape, keep backslash and char
+                                 temp_lexeme += '\\';
+                                 temp_lexeme += nextChar;
+                                 break;
+                         }
+                     } else {
+                         temp_lexeme += lexemeStr[i];
+                     }
+                 }
+                 lexemeStr = temp_lexeme;
+            }
+        }
+
+        // 6. Add Token (Use already converted type)
+        tokens.push_back({currentType, lexemeStr, tokenLine, tokenColumn});
     }
 
+    inFile.close();
     return tokens;
 }
-
-
-
 
 int main(int argc, char* argv[]) {
     std::string inputFilename = "input/input.tokens"; // Default input file
@@ -168,27 +210,27 @@ int main(int argc, char* argv[]) {
     std::cout << "Parsing token stream..." << std::endl;
     Parser parser(tokens);
     std::unique_ptr<ProgramNode> astRoot = nullptr;
-    bool parseSuccessful = true;
+    bool parseErrorOccurred = false; // Flag to track if any ParseError was caught
 
     try {
         astRoot = parser.parse();
     } catch (const ParseError& e) {
         // Parser::error already printed details
         std::cerr << "Parsing failed due to syntax errors." << std::endl;
-        parseSuccessful = false;
+        parseErrorOccurred = true; // Set the flag
         // Continue to allow partial output if desired, or return here
-         return 1; // Exit after first parse error
+         // return 1; // Exit after first parse error - Keep commented to allow seeing multiple errors
     } catch (const std::exception& e) {
         std::cerr << "An unexpected error occurred during parsing: " << e.what() << std::endl;
         return 1;
     }
 
-    if (!astRoot) {
-        std::cerr << "Error: Parsing resulted in a null AST root." << std::endl;
+    if (!astRoot && !parseErrorOccurred) { // Check if root is null AND no parse error happened
+        std::cerr << "Error: Parsing resulted in a null AST root without reporting specific parse errors." << std::endl;
         return 1;
     }
     
-    if(parseSuccessful){
+    if (!parseErrorOccurred && astRoot) { // Check the flag AND if astRoot is valid
         std::cout << "Parsing completed successfully." << std::endl;
         std::cout << "Writing AST to: " << outputFilename << std::endl;
     
@@ -208,7 +250,7 @@ int main(int argc, char* argv[]) {
     
         std::cout << "AST successfully written to " << outputFilename << std::endl;
     } else {
-         std::cout << "Parsing finished with errors. AST was not generated." << std::endl;
+         std::cout << "Parsing finished with errors. AST was not generated or is incomplete." << std::endl;
          return 1; // Indicate failure
     }
 

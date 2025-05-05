@@ -53,7 +53,7 @@ enum class TokenType {
     COMMENT, EOF_TOKEN, ERROR,
     
     //More
-    STYLE_INCLUDE, SCOPE_RESOLUTION
+    STYLE_INCLUDE, SCOPE_RESOLUTION, NEWLINE
 };
 
 

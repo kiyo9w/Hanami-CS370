@@ -8,14 +8,17 @@ CXXFLAGS = -Wall -std=c++17 -I../common -g
 # Target executable name
 TARGET = codegen_executable
 
-# Source files (assuming only main.cpp for now)
-SRCS = main.cpp 
+# Source files
+SRCS = codegen.cpp 
 
 # Add common objects to the list
-COMMON_OBJS = ../common/json_deserializer.o
+COMMON_OBJS = ../common/json_deserializer.o ../common/utils.o
 
 # Object files derived from source files
 OBJS = $(SRCS:.cpp=.o)
+
+# Default Input IR file (output from semantic analyzer)
+INPUT_FILE ?= input/input.ir
 
 # Detect OS
 ifeq ($(OS),Windows_NT)
@@ -43,6 +46,9 @@ $(TARGET): $(OBJS) $(COMMON_OBJS)
 ../common/json_deserializer.o: ../common/json_deserializer.cpp ../common/json_deserializer.h ../common/ast.h ../common/token.h
 	$(CXX) $(CXXFLAGS) -c ../common/json_deserializer.cpp -o ../common/json_deserializer.o
 
+../common/utils.o: ../common/utils.cpp ../common/utils.h ../common/token.h
+	$(CXX) $(CXXFLAGS) -c ../common/utils.cpp -o ../common/utils.o
+
 # Rule to clean up generated files
 clean:
 ifeq ($(OS),Windows_NT)
@@ -55,12 +61,12 @@ ifeq ($(OS),Windows_NT)
 	-if exist "..\output\*.js" $(RM) "..\output\*.js"
 	-if exist "$(WIN_COMMON_OBJS)" $(RM) "$(WIN_COMMON_OBJS)"
 else
-	$(RM) $(OBJS) $(TARGET) ../output/*.java ../output/*.py ../output/*.cpp ../output/*.js $(COMMON_OBJS)
+	$(RM) $(OBJS) $(TARGET) output/*.java output/*.py output/*.cpp output/*.js $(COMMON_OBJS)
 endif
 
 # Rule to run the executable (uses default input/output paths)
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(INPUT_FILE)
 
 # Phony targets avoid conflicts with actual file names
 .PHONY: all clean run

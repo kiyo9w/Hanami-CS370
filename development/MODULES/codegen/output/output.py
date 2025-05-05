@@ -1,50 +1,28 @@
-class Pet:
+class Rose:
     def __init__(self):
-      self.name = "Unknown"
-      self.age = 0
+      self.secretNumber = 42
+      self.isFriendly = True
 
-    def setDetails(self, newName, newAge):
-        self.name = newName
-        self.age = newAge
-        print("Pet details updated: Name=", self.name, ", Age=", self.age, "\n", end='')
+    def sayHello(self):
+        print("Hello from Hanami Rose!\n", end='')
         return
-
-    def introduce(self):
-        print("Woof! My name is ", self.name, " and I am ", self.age, " year(s) old.\n", end='')
-        return
-
-    def getAgeInDogYears(self):
-        return (self.age * 7)
 
 
 def mainGarden():
-    print("--- Hanami Pet Program Starting ---\n", end='')
-    ownerName = None
-    nameIsHanami = False
-    calculatedValue = 0
-    myDog = None
-    myDog.setDetails("Buddy", 3)
-    myDog.introduce()
-    print("What is your name? ", end='')
-    ownerName = input()
-    if (ownerName == "Hanami"):
-        print("Welcome, Creator Hanami!\n", end='')
-        nameIsHanami = True
-        calculatedValue = 100
-    elif (ownerName == "Buddy"):
-        print("Hey, that's my name!\n", end='')
-        calculatedValue = 50
+    userName = None
+    print("What's your name?", end='')
+    userName = input() # TODO: Add type conversion if needed (e.g., int(), float())
+    g = Rose()
+    g.sayHello()
+    if (userName == "Rose"):
+        print("You have a lovely name!\n", end='')
+    elif (userName == "Lily"):
+        print("Another beautiful flower name!\n", end='')
     else:
-        print("Nice to meet you, ", ownerName, "!\n", end='')
-        nameIsHanami = False
-        calculatedValue = myDog.getAgeInDogYears()
-    calculatedValue = (calculatedValue + 5)
-    print("Calculated value: ", calculatedValue, "\n", end='')
-    print("Is owner Hanami? ", nameIsHanami, "\n", end='')
-    print("--- Hanami Pet Program Ending ---\n", end='')
+        print("Nice to meet you,", userName, "!\n", end='')
     return 0
 
 
 
 if __name__ == "__main__":
-    mainGarden() # Or main() depending on the Hanami code
+    mainGarden()

@@ -1,4 +1,5 @@
 #include "../common/token.h"
+#include "../common/utils.h"
 #include "lexer.h"
 
 // Add the constructor definition
@@ -102,7 +103,7 @@ char Lexer::advance() {
 
     bool Lexer::match(char expected) {
         if(isEnd()) return false;
-        if(source[current] != expected) return false;
+        if(source[current + 1] != expected) return false;
 
         current++;
         column++;
@@ -155,7 +156,7 @@ char Lexer::advance() {
                 
                 // Gọi scanToken() và ghi log kết quả
                 Token token = scanToken();
-                std::cerr << "Generated token with type " << (int)token.type 
+                std::cerr << "Generated token with type " << tokenTypeToString(token.type) 
                           << " (\"" << token.lexeme << "\") at line " << token.line 
                           << ", column " << token.column << std::endl;
                 
@@ -182,306 +183,199 @@ char Lexer::advance() {
     
 
     Token Lexer::scanToken() {
-        // Dùng biến static để theo dõi vị trí và track số lượng token đã tạo
         static int previousPosition = -1;
-        static int tokenCount = 0;
-        static TokenType lastTokenType = TokenType::EOF_TOKEN; // Thêm biến để theo dõi loại token cuối
-    
+        // static int tokenCount = 0; // Keep for potential future debugging
 
-        //std::cerr << "\n--- DEBUG: scanToken() call times: " << tokenCount + 1 << " ---" << std::endl;
-        //std::cerr << "Pos: " << current << ", line: " << line << ", column: " << column << std::endl;
-        //std::cerr << "current char: '" << (isEnd() ? "EOF" : std::string(1, peek())) << "'" << std::endl;
-
-        // Kiểm tra để phát hiện vòng lặp vô hạn
+        // Prevent infinite loops
         if (current == previousPosition && !isEnd()) {
-            std::cerr << "WARNING: Lexer not advancing at position " << current 
-                      << ", line " << line << ", column " << column
-                      << ", current char: '" << (isEnd() ? "EOF" : std::string(1, peek())) << "'" << std::endl;
-            
-            // Tiêu thụ ký tự này để tránh lặp vô hạn
-            if (!isEnd()) {
-                char troubleChar = advance();
-                return {TokenType::ERROR, std::string(1, troubleChar), line, column - 1};
-            }
+            std::cerr << "WARNING: Lexer stuck at position " << current 
+                      << ", line " << line << ", col " << column 
+                      << ", char: '" << peek() << "'" << std::endl;
+            char stuckChar = advance(); // Consume the problematic character
+            return {TokenType::ERROR, std::string("Lexer stuck on character: ") + stuckChar, line, column - 1};
         }
-        
-        // Kiểm tra giới hạn token để tránh vòng lặp vô hạn
-        tokenCount++;
-        //std::cerr<<peek()<<std::endl;
-        const int MAX_TOKENS = 5000; // Số lượng token tối đa hợp lý
-        if (tokenCount > MAX_TOKENS) {
-            std::cerr<<peek() << "here !!!!!!" <<std::endl;
-            return {TokenType::ERROR, "Too many tokens generated (possible infinite loop)", line, column};
-        }
-        
         previousPosition = current;
             
-        // Bỏ qua khoảng trắng
         skipWhitespace();
 
-        // Check if we're at the end of file
         if (isEnd()) {
             return {TokenType::EOF_TOKEN, "", line, column};
         }
     
-        // Lưu vị trí bắt đầu token
         int startColumn = column;
-        int startLine = line;
-        
-        // Đọc ký tự đầu tiên
-        char c = advance();
-    
-        // Xử lý chuỗi
-        if (c == '"') {
-            return string();
+        int startLine = line; // Capture start line for tokens
+        char c = peek();
+
+        // --- Handle Comments First --- 
+        if (c == '/' && peekNext() == '/') {
+            while (peek() != '\n' && !isEnd()) advance();
+            return scanToken(); // Recursively call to get the next actual token
         }
-    
-        // Xử lý số
-        if (isdigit(c)) {
-            current--; // Lùi lại để đọc từ đầu
-            column--;
-            return Number();
-        }
-        
-        // Xử lý số bắt đầu bằng dấu chấm (.5)
-        if (c == '.' && isdigit(peek())) {
-            current--; // Lùi lại để Number() đọc cả dấu chấm
-            column--;
-            return Number();
-        }
-        
-        // Xử lý identifiers và keywords
-        if (isalpha(c) || c == '_') {
-            current--;  // Move back to re-read in identifier()
-            column--;   // Adjust column position as well
-            Token token = identifier();
-            lastTokenType = token.type; // Lưu lại token type
-            return token;
-        }
-        
-        // Xử lý các toán tử và dấu câu
-        switch (c) {
-            case '(': {
-                Token token = {TokenType::LEFT_PAREN, "(", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
+        if (c == '/' && peekNext() == '*') {
+            advance(); advance(); // Consume /*
+            int commentStartLine = line;
+            int commentStartCol = startColumn;
+            while (!isEnd()) {
+                if (peek() == '*' && peekNext() == '/') {
+                    advance(); advance(); // Consume */
+                    break;
             }
-            case ')': {
-                Token token = {TokenType::RIGHT_PAREN, ")", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case '{': {
-                Token token = {TokenType::LEFT_BRACE, "{", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case '}': {
-                Token token = {TokenType::RIGHT_BRACE, "}", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case '[': {
-                Token token = {TokenType::LEFT_BRACKET, "[", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case ']': {
-                Token token = {TokenType::RIGHT_BRACKET, "]", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case ',': {
-                Token token = {TokenType::COMMA, ",", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case '.': {
-                Token token = {TokenType::DOT, ".", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case ';': {
-                Token token = {TokenType::SEMICOLON, ";", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case '+': {
-                Token token = {TokenType::PLUS, "+", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            case '*': {
-                Token token = {TokenType::STAR, "*", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case ':': {
-                //std::cerr << "DEBUG: Detected ':' at line " << startLine << ", column " << startColumn << std::endl;
-                if (peek() == ':') {
-                    //std::cerr << "DEBUG: Found '::' at line " << startLine << ", column " << startColumn << std::endl;
-                    advance(); // Tiêu thụ ':'
-                    //std::cerr << "DEBUG: Found SCOPE_RESOLUTION, current position after consuming: " << current 
-                 //<< ", next char: '" << peek() << "'" << std::endl;
-                    Token token = {TokenType::SCOPE_RESOLUTION, "::", startLine, startColumn};
-                    lastTokenType = token.type;
-                    //advance(); // Tiêu thụ ':'
-                    return token;
+                if (isEnd()) { // Unterminated comment
+                     return {TokenType::ERROR, "Unterminated block comment", commentStartLine, commentStartCol};
                 }
-                Token token = {TokenType::COLON, ":", startLine, startColumn};
-                lastTokenType = token.type;
-                //advance(); // Tiêu thụ ':'
-                return token;
+                advance(); // Consume comment character
             }
-                
-            case '-': {
+            return scanToken(); // Get next actual token
+        }
+        
+        // --- Handle STYLE Include --- 
+        // Check for 'style' keyword specifically
+        if (c == 's' && source.substr(current, 5) == "style") {
+             int keywordEndPos = current + 5;
+             // Check if it's followed by non-alphanumeric to confirm it's the keyword
+             if (keywordEndPos >= source.length() || !isalnum(source[keywordEndPos])) {
+                 // Consume "style"
+                 current = keywordEndPos;
+                 column += 5;
+                 skipWhitespace(); // Skip space before < or "
+                 startColumn = column; // Update start column for the path
+                 char pathDelimiter = peek();
+                 std::string pathLexeme;
+                 
+                 if (pathDelimiter == '<') {
+                     advance(); // Consume '<'
+                     while (!isEnd() && peek() != '>' && peek() != '\n') {
+                         pathLexeme += advance();
+                     }
                 if (peek() == '>') {
-                    advance(); // Tiêu thụ '>'
-                    //std::cerr << "DEBUG: Consumed ARROW at line " << startLine << ", column " << startColumn 
-                            //<< ", next char is '" << peek() << "'" << std::endl;
-                    Token token = {TokenType::ARROW, "->", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::MINUS, "-", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '=': {
-                if (peek() == '=') {
-                    advance(); // Tiêu thụ '='
-                    Token token = {TokenType::EQUAL, "==", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::ASSIGN, "=", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '!': {
-                if (peek() == '=') {
-                    advance(); // Tiêu thụ '='
-                    Token token = {TokenType::NOT_EQUAL, "!=", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::NOT, "!", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '<': {
-                // Xử lý đặc biệt cho style includes
-                if (lastTokenType == TokenType::STYLE) {
-                    std::string includePath;
-                    while (!isEnd() && peek() != '>') {
-                        includePath += advance();
-                    }
-                    
-                    if (isEnd()) {
-                        Token token = {TokenType::ERROR, "Unterminated include directive", startLine, startColumn};
-                        lastTokenType = token.type;
-                        return token;
-                    }
-                    
-                    // Tiêu thụ '>'
+                         advance(); // Consume '>'
+                         return {TokenType::STYLE_INCLUDE, pathLexeme, startLine, startColumn};
+                     } else {
+                         return {TokenType::ERROR, "Unterminated style path starting with <", startLine, startColumn};
+                     }
+                 } else if (pathDelimiter == '"') {
+                      advance(); // Consume '"'
+                      int pathStartLine = line; // Store line in case of multi-line path
+                      while (!isEnd() && peek() != '"' && peek() != '\n') {
+                         pathLexeme += advance();
+                      }
+                       if (peek() == '"') {
+                         advance(); // Consume '"'
+                         return {TokenType::STYLE_INCLUDE, pathLexeme, pathStartLine, startColumn};
+                     } else {
+                         return {TokenType::ERROR, "Unterminated style path starting with \"", pathStartLine, startColumn};
+                     }
+                 } else {
+                      // It was "style" but not followed by < or ", treat as identifier or error? 
+                      // For now, let it fall through to identifier handling if possible, 
+                      // or return error if context demands include path.
+                      // Let's return error for clarity, parser expects path here.
+                      return {TokenType::ERROR, "Expected '<' or '\"' after style keyword", startLine, column};
+                 }
+             }
+             // If it wasn't "style " or similar, fall through to general identifier handling
+        }
+
+        // --- Handle Multi-Character Operators & Punctuation FIRST --- 
+        // Order matters: check longer tokens before shorter prefixes
+        if (c == '<') {
+             if (match('<')) {advance(); return {TokenType::STREAM_OUT, "<<", startLine, startColumn};}
+             if (match('=')) {advance(); return {TokenType::LESS_EQUAL, "<=", startLine, startColumn};}
+             // If neither match succeeded, consume c and return LESS
+             advance();
+             return {TokenType::LESS, "<", startLine, startColumn};
+        }
+        if (c == '>') {
+             if (match('>')) {advance(); return {TokenType::STREAM_IN, ">>", startLine, startColumn};}
+             if (match('=')) {advance(); return {TokenType::GREATER_EQUAL, ">=", startLine, startColumn};}
+             // If neither match succeeded, consume c and return GREATER
                     advance();
-                    
-                    Token token = {TokenType::STYLE_INCLUDE, includePath, startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                
-                // Xử lý thông thường
-                if (peek() == '<') {
-                    advance(); // Tiêu thụ '<'
-                    Token token = {TokenType::STREAM_OUT, "<<", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                } else if (peek() == '=') {
-                    advance(); // Tiêu thụ '='
-                    Token token = {TokenType::LESS_EQUAL, "<=", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::LESS, "<", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '>': {
-                if (peek() == '>') {
-                    advance(); // Tiêu thụ '>'
-                    Token token = {TokenType::STREAM_IN, ">>", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                } else if (peek() == '=') {
-                    advance(); // Tiêu thụ '='
-                    Token token = {TokenType::GREATER_EQUAL, ">=", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::GREATER, ">", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '&': {
-                if (peek() == '&') {
-                    advance(); // Tiêu thụ '&'
-                    Token token = {TokenType::AND, "&&", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::ERROR, "&", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '|': {
-                if (peek() == '|') {
-                    advance(); // Tiêu thụ '|'
-                    Token token = {TokenType::OR, "||", startLine, startColumn};
-                    lastTokenType = token.type;
-                    return token;
-                }
-                Token token = {TokenType::ERROR, "|", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-            
-            case '/': {
-                if (peek() == '/') {
-                    // Đọc qua toàn bộ comment
-                    while (!isEnd() && peek() != '\n') {
-                        advance();
-                    }
-                    // Thử lấy token tiếp theo, thay vì trả về comment token
-                    return scanToken();
-                }
-                Token token = {TokenType::SLASH, "/", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            case '%': {
-                Token token = {TokenType::MODULO, "%", startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
-    
-            default: {
-                //advance(); // Tiêu thụ ký tự không hợp lệ
-                //std::cerr << "DEBUG: Invalid character '" << c << "' at line " 
-                          //<< startLine << ", column " << startColumn << std::endl;
-                Token token = {TokenType::ERROR, std::string(1, c), startLine, startColumn};
-                lastTokenType = token.type;
-                return token;
-            }
+             return {TokenType::GREATER, ">", startLine, startColumn};
         }
+        if (c == '=') {
+             if (match('=')) {advance(); return {TokenType::EQUAL, "==", startLine, startColumn};}
+              // If not '==', consume the original '=' and return ASSIGN
+             advance(); // Consume the '='
+             return {TokenType::ASSIGN, "=", startLine, startColumn};
+        }
+         if (c == '!') {
+             if (match('=')) {advance(); return {TokenType::NOT_EQUAL, "!=", startLine, startColumn};}
+             // If not '!=', consume c and return NOT
+             advance();
+             return {TokenType::NOT, "!", startLine, startColumn};
+        }
+        if (c == '-') {
+             if (match('>')) {advance(); return {TokenType::ARROW, "->", startLine, startColumn};}
+             // Check if it's a negative number (BEFORE treating as minus operator)
+             if (isdigit(peek()) || (peek() == '.' && isdigit(peekNext()))) {
+                 return Number(); // Let Number() handle it, including the leading '-'
+             }
+             // If not '->' or start of number, consume c and return MINUS
+             advance();
+             return {TokenType::MINUS, "-", startLine, startColumn};
+        }
+        if (c == ':') {
+            if (match(':')) {advance(); return {TokenType::SCOPE_RESOLUTION, "::", startLine, startColumn};}
+             // If not '::', consume c and return COLON
+            advance();
+            return {TokenType::COLON, ":", startLine, startColumn};
+        }
+
+        // --- Check for Start of Number ---
+        if (isdigit(c) || (c == '.' && isdigit(peek()))) // Check current char or '.' followed by digit
+        {
+            return Number();
+            }
+    
+        // --- Handle Strings ---
+        if (c == '"') {
+            return string(); // string() handles consuming the rest
+        }
+
+        // --- Handle Identifiers & Other Keywords ---
+        // This should only be reached if c wasn't part of an operator, number, or string start
+        if (isalpha(c) || c == '_') { 
+            std::string lexeme;
+            lexeme += advance(); // Consume the first char (c)
+            while (isalnum(peek()) || peek() == '_') {
+                lexeme += advance();
+            }
+            auto it = keywords.find(lexeme);
+            if (it != keywords.end()) {
+                return {it->second, lexeme, startLine, startColumn};
+                }
+            return {TokenType::IDENTIFIER, lexeme, startLine, startColumn};
+        }
+
+        // --- Handle Remaining Single-Character Punctuation --- 
+        // These should be characters not starting any multi-char token handled above
+        // or prefixes of numbers/identifiers/strings
+        switch (c) {
+            case '+': advance(); return {TokenType::PLUS, "+", startLine, startColumn};
+            // case '-': // Handled above
+            case '*': advance(); return {TokenType::STAR, "*", startLine, startColumn};
+            case '/': advance(); return {TokenType::SLASH, "/", startLine, startColumn};
+            case '%': advance(); return {TokenType::MODULO, "%", startLine, startColumn};
+            // case '<': // Handled above
+            // case '>': // Handled above
+            // case '=': // Handled above
+            // case '!': // Handled above
+            case '.': advance(); return {TokenType::DOT, ".", startLine, startColumn}; // Standalone DOT
+            // case ':': // Handled above
+            case ',': advance(); return {TokenType::COMMA, ",", startLine, startColumn};
+            case ';': advance(); return {TokenType::SEMICOLON, ";", startLine, startColumn};
+            case '(': advance(); return {TokenType::LEFT_PAREN, "(", startLine, startColumn};
+            case ')': advance(); return {TokenType::RIGHT_PAREN, ")", startLine, startColumn};
+            case '{': advance(); return {TokenType::LEFT_BRACE, "{", startLine, startColumn};
+            case '}': advance(); return {TokenType::RIGHT_BRACE, "}", startLine, startColumn};
+            case '[': advance(); return {TokenType::LEFT_BRACKET, "[", startLine, startColumn};
+            case ']': advance(); return {TokenType::RIGHT_BRACKET, "]", startLine, startColumn};
+        }
+        
+        // --- Error for Unknown Character --- 
+        // Consume the unknown character before returning error
+        advance(); 
+        return {TokenType::ERROR, "Unexpected character: " + std::string(1, c), startLine, startColumn};
     }
     
     
@@ -523,150 +417,155 @@ char Lexer::advance() {
     
     Token Lexer::Number() {
         int startColumn = column;
+        int startLine = line;
         std::string lexeme = "";
+        TokenType inferredType = TokenType::NUMBER; // Start assuming integer
+        int startPos = current; // Initial position for loop detection
         
-        // Lưu vị trí ban đầu để kiểm tra tiến triển
-        int startPos = current;
-        
-        // 1. XỬ LÝ DẤU +/- ĐỨNG ĐẦU
-        bool hasLeadingSign = false;
+        // 1. Optional Leading Sign
         if (peek() == '-' || peek() == '+') {
-            // Kiểm tra xem đây là dấu đơn lẻ hay một phần của số
             if (!isdigit(peekNext()) && peekNext() != '.') {
-                char op = advance();
-                TokenType type = (op == '+') ? TokenType::PLUS : TokenType::MINUS;
-                return {type, std::string(1, op), line, startColumn};
+                // Let scanToken handle it as an operator
+                // This should ideally not be reached if scanToken logic is correct
+                return {TokenType::ERROR, "Sign not followed by digit or dot", startLine, startColumn};
             }
-            
             lexeme += advance();
-            hasLeadingSign = true;
         }
-        
-        // 2. XỬ LÝ SỐ BẮT ĐẦU BẰNG DẤU CHẤM (.123)
+
+        // Check for Hex/Binary/Octal prefix AFTER potential sign
+        if (peek() == '0' && (peekNext() == 'x' || peekNext() == 'X' || 
+                            peekNext() == 'b' || peekNext() == 'B' || 
+                            peekNext() == 'o' || peekNext() == 'O')) {
+            lexeme += advance(); // Consume '0'
+            return handleSpecialNumber(lexeme, startColumn); // This handles hex floats too
+        }
+
+        // 2. Consume Integer Part (if any)
+        bool hasLeadingDigits = isdigit(peek());
+        if (hasLeadingDigits) {
+            consumeDigits(lexeme);
+        }
+
+        // 3. Consume Decimal Part (if present)
+        bool hasDecimalPoint = false;
         if (peek() == '.') {
-            lexeme += advance();  // Tiêu thụ dấu chấm
-            
-            // Nếu không có chữ số nào sau dấu chấm và không có chữ số nào trước đó
-            if (!isdigit(peek()) && (lexeme == "." || lexeme == "+." || lexeme == "-.")) {
-                if (lexeme == ".") {
-                    // Đảm bảo đã tiêu thụ ít nhất một ký tự
-                    if (current > startPos) {
-                        return {TokenType::DOT, ".", line, startColumn};
-                    } else {
-                        // Nếu không tiêu thụ gì, tiêu thụ dấu chấm
-                        advance();
-                        return {TokenType::DOT, ".", line, startColumn};
-                    }
-                }
-                
-                // Trả về dấu +/- nếu chỉ có +. hoặc -.
-                char op = lexeme[0];
-                // Đảm bảo đã tiêu thụ ít nhất một ký tự
-                if (current > startPos) {
-                    return {op == '+' ? TokenType::PLUS : TokenType::MINUS, std::string(1, op), line, startColumn};
+            // Make sure it's not the '..' operator
+            if (peekNext() == '.') {
+                 // It's an integer followed by '..', return the integer part if any digits were read
+                 if (hasLeadingDigits || !lexeme.empty()) { // Need digits before or sign 
+                      return {TokenType::NUMBER, lexeme, startLine, startColumn};
                 } else {
-                    // Nếu không tiêu thụ gì, tiêu thụ một ký tự
-                    advance();
-                    return {op == '+' ? TokenType::PLUS : TokenType::MINUS, std::string(1, op), line, startColumn};
+                      // Just a lone '.' followed by '.'? Let scanToken handle it.
+                      return {TokenType::ERROR, "Invalid token start", startLine, startColumn};
                 }
             }
-            
-            // Đọc chữ số sau dấu chấm thập phân
-            consumeDigits(lexeme);
-            
-            // Xử lý ký hiệu mũ (1.23e45)
-            handleExponent(lexeme, false);
-            
-            // Xử lý hậu tố kiểu dữ liệu (f, L, u, v.v.)
-            handleTypeSuffix(lexeme);
-            
-            // Kiểm tra xem có tiêu thụ ký tự nào không
-            if (current > startPos) {
-                return {TokenType::NUMBER, lexeme, line, startColumn};
+            // Check if there are digits *after* the dot
+            if (isdigit(peekNext())) {
+                 hasDecimalPoint = true;
+                 inferredType = TokenType::DOUBLE_LITERAL; // Now it's a float/double
+                 lexeme += advance(); // Consume '.'
+                 consumeDigits(lexeme); // Consume digits AFTER the dot
+            } else if (hasLeadingDigits || !lexeme.empty()) {
+                 // It's a number followed by a dot, but no digits after the dot (e.g., "123.")
+                 // Still treat as a double literal in many languages
+                 hasDecimalPoint = true;
+                 inferredType = TokenType::DOUBLE_LITERAL;
+                 lexeme += advance(); // Consume the dot
             } else {
-                // Nếu không tiêu thụ gì, tiêu thụ một ký tự và trả về lỗi
-                advance();
-                return {TokenType::ERROR, "Invalid number format", line, startColumn};
+                 // Just a lone dot, not followed by digits. Let scanToken handle it.
+                 // If we started with a sign, it's an error here.
+                 if (!lexeme.empty()) { // Had a sign
+                       // Backtrack the sign
+                       current--; column--;
+                       char op = lexeme[0];
+                       return { op == '+' ? TokenType::PLUS : TokenType::MINUS, std::string(1, op), startLine, startColumn };
+                 }
+                 // Otherwise, let scanToken handle the lone dot
+                 return {TokenType::ERROR, "Invalid token start", startLine, startColumn}; 
             }
         }
-        
-        // 3. XỬ LÝ SỐ THẬP PHÂN THÔNG THƯỜNG VÀ SỐ ĐẶC BIỆT (HEX, BINARY, OCTAL)
-        else if (isdigit(peek())) {
-            // Đọc phần nguyên
-            consumeDigits(lexeme);
-            
-            // KIỂM TRA SỐ ĐẶC BIỆT (0x, 0b, 0o)
-            if (lexeme == "0" && (peek() == 'x' || peek() == 'X' || 
-                               peek() == 'b' || peek() == 'B' || 
-                               peek() == 'o' || peek() == 'O')) {
-                Token specialToken = handleSpecialNumber(lexeme, startColumn);
-                
-                // Kiểm tra xem có tiêu thụ ký tự nào không
-                if (current > startPos) {
-                    return specialToken;
-                } else {
-                    // Nếu không tiêu thụ gì, tiêu thụ một ký tự và trả về lỗi
-                    advance();
-                    return {TokenType::ERROR, "Invalid special number format", line, startColumn};
-                }
+
+        // Ensure we consumed *something* if we started with digits or a dot that formed part of a number
+        if (!hasLeadingDigits && !hasDecimalPoint && lexeme.empty()) {
+            // Didn't start with digit, didn't start with valid '.' + digit, didn't start with sign + digit/dot
+            // This path indicates an error or logic flaw in scanToken calling Number()
+            if (!isEnd()) advance(); // Prevent infinite loop
+            return {TokenType::ERROR, "Number() called inappropriately", startLine, startColumn};
             }
             
-            // XỬ LÝ TRƯỜNG HỢP DẤU CHẤM ĐÔI (1..)
-            if (peek() == '.') {
-                lexeme += advance();  // Tiêu thụ dấu chấm đầu tiên
-                
-                if (peek() == '.') {
-                    // Đây là trường hợp 1.. - không tiêu thụ dấu chấm thứ hai
-                    // Kiểm tra xem có tiêu thụ ký tự nào không
-                    if (current > startPos) {
-                        return {TokenType::NUMBER, lexeme, line, startColumn};
-                    } else {
-                        // Nếu không tiêu thụ gì, tiêu thụ một ký tự và trả về lỗi
-                        advance();
-                        return {TokenType::ERROR, "Invalid number format", line, startColumn};
+        // 4. Consume Exponent (if present)
+        bool hasExponent = false;
+        if (peek() == 'e' || peek() == 'E') {
+            char next = peekNext();
+            if (isdigit(next) || ((next == '+' || next == '-') && isdigit(peekNextNext()))) {
+                if (inferredType == TokenType::NUMBER) {
+                    inferredType = TokenType::DOUBLE_LITERAL; // Int + exponent -> double
+                }
+                std::string beforeExp = lexeme;
+                handleExponent(lexeme, false); // false = decimal exponent
+                if (lexeme == beforeExp) { // handleExponent should have consumed digits
+                    return {TokenType::ERROR, "Invalid exponent format (missing digits)", startLine, startColumn};
                     }
-                }
-                
-                // Tiếp tục xử lý như số thập phân bình thường
-                consumeDigits(lexeme);
+                hasExponent = true;
             }
-            
-            // Xử lý ký hiệu mũ (123e45)
-            handleExponent(lexeme, false);
-            
-            // Xử lý hậu tố kiểu dữ liệu
-            handleTypeSuffix(lexeme);
-            
-            // Kiểm tra xem có tiêu thụ ký tự nào không
-            if (current > startPos) {
-                return {TokenType::NUMBER, lexeme, line, startColumn};
-            } else {
-                // Nếu không tiêu thụ gì, tiêu thụ một ký tự và trả về lỗi
+            // else: 'e' not followed by digit/sign, treat as separate identifier
+        }
+
+        // 5. Consume Suffixes (f, F, l, L, u, U)
+        char suffixPeek = peek();
+        bool isFloatSuffix = (suffixPeek == 'f' || suffixPeek == 'F');
+        bool isLongSuffix = (suffixPeek == 'l' || suffixPeek == 'L');
+        bool isUnsignedSuffix = (suffixPeek == 'u' || suffixPeek == 'U');
+
+        if (isFloatSuffix) {
+            if (inferredType == TokenType::NUMBER) {
+                advance(); // Consume f/F
+                return {TokenType::ERROR, "Invalid suffix 'f'/'F' on integer literal", startLine, startColumn};
+            }
+            lexeme += advance(); // Consume suffix
+            inferredType = TokenType::FLOAT_LITERAL;
+            // Check for subsequent invalid suffixes
+            if (peek() == 'l' || peek() == 'L' || peek() == 'u' || peek() == 'U') {
                 advance();
-                return {TokenType::ERROR, "Invalid number format", line, startColumn};
+                return {TokenType::ERROR, "Invalid suffix after 'f'/'F'", startLine, startColumn};
             }
-        }
-        
-        // 4. XỬ LÝ DẤU +/- ĐƠN ĐỘC
-        else if (hasLeadingSign) {
-            char op = lexeme[0];
-            // Kiểm tra xem có tiêu thụ ký tự nào không
-            if (current > startPos) {
-                return {op == '+' ? TokenType::PLUS : TokenType::MINUS, lexeme, line, startColumn};
+        } else if (isLongSuffix || isUnsignedSuffix) {
+            if (inferredType == TokenType::FLOAT_LITERAL || inferredType == TokenType::DOUBLE_LITERAL) {
+                advance(); // Consume l/L/u/U
+                return {TokenType::ERROR, "Invalid suffix (l/L/u/U) on floating-point literal", startLine, startColumn};
+            }
+            // Consume the suffix sequence robustly (simplified)
+            std::string suffixCombo = "";
+            bool firstL = false, secondL = false, firstU = false;
+             while (true) {
+                  char currentSuffix = peek();
+                  if ((currentSuffix == 'l' || currentSuffix == 'L') && !secondL) {
+                      if (!firstL) firstL = true;
+                      else secondL = true;
+                      suffixCombo += advance();
+                  } else if ((currentSuffix == 'u' || currentSuffix == 'U') && !firstU) {
+                      firstU = true;
+                      suffixCombo += advance();
             } else {
-                // Nếu không tiêu thụ gì, tiêu thụ một ký tự và trả về token dấu
-                advance();
-                return {op == '+' ? TokenType::PLUS : TokenType::MINUS, std::string(1, op), line, startColumn};
-            }
+                      break; 
+                  }
+             }
+            lexeme += suffixCombo;
+            inferredType = TokenType::NUMBER; // Still integer type conceptually
+        }
+
+        // Final check: If it had a decimal or exponent BUT no float suffix, it MUST be double
+        if ((hasDecimalPoint || hasExponent) && inferredType == TokenType::NUMBER) {
+            inferredType = TokenType::DOUBLE_LITERAL;
         }
         
-        // 5. TRƯỜNG HỢP KHÔNG HỢP LỆ
-        // Đảm bảo luôn tiêu thụ ít nhất một ký tự để tránh lặp vô hạn
-        if (current == startPos && !isEnd()) {
-            advance(); // Tiêu thụ một ký tự để tránh lặp vô hạn
+        // Final check for progress to prevent infinite loops
+        if (current == startPos) {
+            if (!isEnd()) advance(); 
+            return {TokenType::ERROR, "Number parsing failed to advance", startLine, startColumn};
         }
-        
-        return {TokenType::ERROR, "Invalid number", line, startColumn};
+
+        return {inferredType, lexeme, startLine, startColumn};
     }
 
 
@@ -771,99 +670,206 @@ char Lexer::advance() {
     }
     
     Token Lexer::handleSpecialNumber(std::string& lexeme, int startColumn) {
-        char prefix = advance();
+        // lexeme already contains "0"
+        int startLine = line;
+        char prefix = advance(); // Consume x, b, or o
         lexeme += prefix;
+        TokenType type = TokenType::NUMBER; // Default
+        bool hasDecimalPoint = false;
+        bool hasExponent = false;
+        int startPos = current - 2; // Track from beginning of 0x/0b/0o
         
-        // XỬ LÝ SỐ THẬP LỤC PHÂN (0x...)
         if (prefix == 'x' || prefix == 'X') {
-            bool hasDigits = false;
-            
-            // Đọc các chữ số thập lục phân
+            // Hex Floats (e.g., 0x1.Ap+3) or Hex Ints (e.g., 0xFF)
+            std::string beforeDigits = lexeme;
             consumeHexDigits(lexeme);
+            bool hasMantissaDigits = (lexeme.size() > beforeDigits.size());
             
-            // Kiểm tra xem có chữ số thập lục phân nào không
-            hasDigits = (lexeme.size() > 2);  // 2 = "0x"
-            
-            // Xử lý số thập lục phân dạng float (0x1.Ap3)
             if (peek() == '.') {
-                lexeme += advance();  // Tiêu thụ dấu chấm
-                
-                // Đọc các chữ số thập lục phân sau dấu chấm
-                bool hasDigitsAfterDot = false;
-                std::string beforeConsuming = lexeme;
+                // Check if digits followed the dot
+                char nextAfterDot = peekNext();
+                if (isxdigit(nextAfterDot)) {
+                     hasDecimalPoint = true;
+                     type = TokenType::DOUBLE_LITERAL;
+                     lexeme += advance(); // consume dot
+                     std::string beforeFraction = lexeme;
                 consumeHexDigits(lexeme);
-                hasDigitsAfterDot = (lexeme != beforeConsuming);
-                
-                // Cần có ít nhất một chữ số trước hoặc sau dấu chấm
-                hasDigits = hasDigits || hasDigitsAfterDot;
+                     hasMantissaDigits = hasMantissaDigits || (lexeme.size() > beforeFraction.size());
+                } else if (hasMantissaDigits) {
+                     // Digits before dot, but not after (e.g., 0xFF.) - treat as double
+                     hasDecimalPoint = true;
+                     type = TokenType::DOUBLE_LITERAL;
+                     lexeme += advance(); // consume dot
+                } else {
+                     // 0x. - Invalid
+                     advance(); // Consume dot
+                     return {TokenType::ERROR, "Invalid hex literal (0x.)", startLine, startColumn};
+                }
+            }
+
+            if (!hasMantissaDigits) {
+                 return {TokenType::ERROR, "Invalid hex literal (missing digits)", startLine, startColumn};
             }
             
-            // Xử lý phần mũ của số thập lục phân dạng float (0x1.Ap3)
-            if (hasDigits) {
-                handleExponent(lexeme, true);  // true = hex float
-            }
-            
-            // Nếu không tìm thấy chữ số thập lục phân nào
-            if (!hasDigits) {
-                return {TokenType::NUMBER, "0", line, startColumn};
+            // Hex exponent (p/P)
+            if (peek() == 'p' || peek() == 'P') {
+                 char next = peekNext();
+                 if (isdigit(next) || ((next == '+' || next == '-') && isdigit(peekNextNext()))) {
+                      if (type == TokenType::NUMBER) type = TokenType::DOUBLE_LITERAL; // Becomes double
+                      std::string beforeExp = lexeme;
+                      handleExponent(lexeme, true); // true = hex float exponent
+                      if (lexeme == beforeExp) {
+                           return {TokenType::ERROR, "Invalid hex exponent format (missing digits)", startLine, startColumn};
+                      }
+                      hasExponent = true;
+                 } else {
+                      // p/P not followed by valid exponent - error or treat p as identifier?
+                      // Let's error for now, as p is required for hex float exponent
+                      return {TokenType::ERROR, "Invalid hex exponent (missing digits or sign)", startLine, startColumn};
             }
         }
-        // XỬ LÝ SỐ NHỊ PHÂN (0b...)
-        else if (prefix == 'b' || prefix == 'B') {
-            bool hasDigits = consumeBinaryDigits(lexeme);
             
-            // Không có chữ số nhị phân
-            if (!hasDigits) {
-                return {TokenType::NUMBER, "0", line, startColumn};
+            // Determine final type if not already float/double
+            if (type == TokenType::NUMBER && (hasDecimalPoint || hasExponent)) {
+                 type = TokenType::DOUBLE_LITERAL;
             }
-        }
-        // XỬ LÝ SỐ BÁT PHÂN (0o...)
-        else if (prefix == 'o' || prefix == 'O') {
-            bool hasDigits = consumeOctalDigits(lexeme);
-            
-            // Không có chữ số bát phân
-            if (!hasDigits) {
-                return {TokenType::NUMBER, "0", line, startColumn};
+
+            // Suffixes for hex literals
+             char suffixPeek = peek();
+             bool isFloatSuffix = (suffixPeek == 'f' || suffixPeek == 'F');
+             bool isIntSuffix = (suffixPeek == 'l' || suffixPeek == 'L' || suffixPeek == 'u' || suffixPeek == 'U');
+
+             if (isFloatSuffix) {
+                 if (type == TokenType::NUMBER) {
+                     advance();
+                     return {TokenType::ERROR, "Invalid suffix 'f'/'F' on hex integer literal", startLine, startColumn};
+                 }
+                 lexeme += advance();
+                 type = TokenType::FLOAT_LITERAL;
+                  if (peek() == 'l' || peek() == 'L' || peek() == 'u' || peek() == 'U') {
+                      advance();
+                     return {TokenType::ERROR, "Invalid suffix after 'f'/'F'", startLine, startColumn};
+                 }
+             } else if (isIntSuffix) {
+                  if (type == TokenType::FLOAT_LITERAL || type == TokenType::DOUBLE_LITERAL) {
+                       advance();
+                       return {TokenType::ERROR, "Invalid suffix (l/L/u/U) on hex float literal", startLine, startColumn};
+                  }
+                  // Consume integer suffixes robustly (simplified)
+                  std::string suffixCombo = "";
+                  // ... (Add robust suffix consumption similar to Number()) ...
+                  while(isalnum(peek())) { // Simplistic consumption - needs refinement for order (U before L)
+                       char s = peek();
+                       if (s == 'l' || s == 'L' || s == 'u' || s == 'U') {
+                            suffixCombo += advance(); 
+                       } else break;
+                  }
+                  lexeme += suffixCombo;
+                  type = TokenType::NUMBER; 
+             }
+             
+             if (current == startPos) { // Check progress
+                 if (!isEnd()) advance();
+                  return {TokenType::ERROR, "Hex number parsing failed to advance", startLine, startColumn};
             }
+             return {type, lexeme, startLine, startColumn};
+
+        } else if (prefix == 'b' || prefix == 'B') {
+            // Binary - Must be integer
+            if (!consumeBinaryDigits(lexeme)) { 
+                 return {TokenType::ERROR, "Invalid binary literal (missing digits)", startLine, startColumn};
+            }
+            type = TokenType::NUMBER; 
+        } else if (prefix == 'o' || prefix == 'O') {
+            // Octal - Must be integer
+             if (!consumeOctalDigits(lexeme)) { 
+                 return {TokenType::ERROR, "Invalid octal literal (missing digits)", startLine, startColumn};
+             }
+            type = TokenType::NUMBER; 
+        } else {
+             return {TokenType::ERROR, "Invalid prefix after '0'", startLine, startColumn};
         }
         
-        // Xử lý hậu tố kiểu dữ liệu cho các số đặc biệt
-        handleTypeSuffix(lexeme);
+        // Suffixes for binary/octal (integers only)
+        char suffixPeek = peek();
+        if (suffixPeek == 'f' || suffixPeek == 'F') {
+             advance();
+             return {TokenType::ERROR, "Invalid suffix 'f'/'F' on binary/octal literal", startLine, startColumn};
+        } else if (suffixPeek == 'l' || suffixPeek == 'L' || suffixPeek == 'u' || suffixPeek == 'U'){
+             // Consume integer suffixes robustly (simplified)
+              std::string suffixCombo = "";
+              // ... (Add robust suffix consumption similar to Number()) ...
+              while(isalnum(peek())) { // Simplistic consumption
+                   char s = peek();
+                   if (s == 'l' || s == 'L' || s == 'u' || s == 'U') {
+                       suffixCombo += advance();
+                   } else break;
+              }
+             lexeme += suffixCombo;
+        }
         
-        return {TokenType::NUMBER, lexeme, line, startColumn};
+        if (current == startPos) { // Check progress
+             if (!isEnd()) advance();
+             return {TokenType::ERROR, "Special number parsing failed to advance", startLine, startColumn};
+        }
+
+        return {type, lexeme, startLine, startColumn};
     }
     
 
     
     
     Token Lexer::string() {
-        int startColumn = column - 1; // Trừ 1 vì dấu ngoặc kép đã được tiêu thụ
+        int startColumn = column; // Column where the opening " was
         int startLine = line;
         std::string lexeme;
+        advance(); // Consume the opening " that scanToken detected
         
-        // Đọc đến dấu ngoặc kép đóng
+        // Read until the closing double quote
         while (!isEnd() && peek() != '"') {
-            char c = advance();
-            lexeme += c;
+            char c = peek();
             
-            // Xử lý ký tự đặc biệt và xuống dòng
+            // Handle escape sequences
             if (c == '\\' && !isEnd()) {
-                lexeme += advance();
+                advance(); // Consume the backslash
+                if (isEnd()) {
+                    // Error: Unterminated escape sequence at end of file
+                    return {TokenType::ERROR, "Unterminated escape sequence at EOF", startLine, startColumn};
+                }
+                char escapedChar = advance(); // Consume the character after backslash
+                switch (escapedChar) {
+                    case 'n': lexeme += '\n'; break;
+                    case 't': lexeme += '\t'; break;
+                    case 'r': lexeme += '\r'; break;
+                    case '\\': lexeme += '\\'; break;
+                    case '\"': lexeme += '\"'; break;
+                    // Add other escapes if needed (e.g., '\0')
+                    default:
+                        // Optional: Treat unknown escapes as literal backslash + char
+                        // lexeme += '\\';
+                        // lexeme += escapedChar;
+                        // OR: Report an error for unknown escape sequences
+                        return {TokenType::ERROR, "Unknown escape sequence: \\" + std::string(1, escapedChar), line, column - 2};
+                }
             } else if (c == '\n') {
-                line++;
-                column = 1;
+                 // Error: Newline inside string literal without escaping
+                 advance(); // Consume the newline to report error position correctly
+                 return {TokenType::ERROR, "Unterminated string literal (newline encountered)", startLine, startColumn};
+            } else {
+                // Regular character
+                lexeme += advance(); // Consume the character
             }
         }
         
-        // Kiểm tra kết thúc chuỗi
+        // Check for unterminated string
         if (isEnd()) {
-            return {TokenType::ERROR, "Unterminated string", startLine, startColumn};
+            return {TokenType::ERROR, "Unterminated string literal", startLine, startColumn};
         }
         
-        // Tiêu thụ dấu ngoặc kép đóng
+        // Consume the closing double quote
         advance();
         
-        // Trả về token STRING
+        // Return the STRING token with the processed lexeme (escape sequences interpreted)
         return {TokenType::STRING, lexeme, startLine, startColumn};
     }
     
