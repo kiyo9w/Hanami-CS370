@@ -21,33 +21,7 @@ void Parser::error(const Token& token, const std::string& message) {
 }
 
 // Basic error recovery: advance until a likely statement boundary
-void Parser::synchronize() {
-    advance(); // Consume the token that caused the error
-
-    while (!isAtEnd()) {
-        if (previous().type == TokenType::SEMICOLON) return; // End of a statement
-
-        switch (peek().type) {
-            // Keywords that often start a new statement/declaration
-            case TokenType::SPECIES:
-            case TokenType::GROW:
-            case TokenType::BRANCH:
-            case TokenType::FOR:
-            case TokenType::WHILE:
-            case TokenType::BLOOM:
-            case TokenType::WATER:
-            case TokenType::BLOSSOM: // Return keyword
-            case TokenType::OPEN:
-            case TokenType::HIDDEN:
-            case TokenType::GUARDED:
-                return;
-            default:
-                // Keep consuming tokens
-                break;
-        }
-        advance();
-    }
-}
+// void Parser::synchronize() { ... } // Can optionally remove or comment out this entire function if not used
 
 // --- Helper Methods --- 
 
@@ -115,14 +89,20 @@ std::unique_ptr<ProgramNode> Parser::parse() {
     auto program = std::make_unique<ProgramNode>();
     while (!isAtEnd()) {
         try {
-             program->statements.push_back(parseDeclaration());
+             std::cerr << "DEBUG: Parser::parse() loop, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\n";
+             auto declaration = parseDeclaration();
+             if (declaration) {
+                 std::cerr << "DEBUG: Adding statement of type '" << declaration->toJson()["node_type"].get<std::string>() << "' to ProgramNode.\n";
+                 program->statements.push_back(std::move(declaration));
+             } else {
+                 std::cerr << "WARN: parseDeclaration() returned nullptr! Skipping token: " << tokenTypeToString(peek().type) << "\n";
+                 if (!isAtEnd()) advance(); // Avoid infinite loop if parseDeclaration fails
+             }
         } catch (const ParseError& e) {
-            // synchronize() attempts to recover and find the next statement
-            synchronize();
-            // Optionally, you could track errors instead of just printing
-            // hasError = true;
+             std::cerr << "DEBUG: Caught ParseError in main loop, re-throwing...\\n";
+             // synchronize(); // Remove synchronization
+             throw; // Re-throw the caught exception
         }
-       
     }
     return program;
 }
@@ -131,7 +111,12 @@ std::unique_ptr<ProgramNode> Parser::parse() {
 
 // declaration -> styleInclude | gardenDeclaration | speciesDeclaration | functionDefinition | variableDeclaration | statement ;
 std::unique_ptr<Statement> Parser::parseDeclaration() {
-    if (match({TokenType::STYLE})) return parseStyleInclude();
+    // Check for STYLE_INCLUDE directly as the lexer now provides it
+    if (check(TokenType::STYLE_INCLUDE)) {
+        Token pathToken = consume(TokenType::STYLE_INCLUDE, "Internal error: checked STYLE_INCLUDE but failed to consume.");
+        match({TokenType::SEMICOLON}); // Optional semicolon
+        return std::make_unique<StyleIncludeStmt>(pathToken.lexeme);
+    }
     if (match({TokenType::GARDEN})) return parseGardenDeclaration();
     if (match({TokenType::SPECIES})) return parseSpeciesDeclaration();
     if (match({TokenType::GROW})) return parseFunctionDefinition();
@@ -161,15 +146,6 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     return parseVariableDeclarationOrExprStmt(); 
 }
 
-// styleInclude -> STYLE STYLE_INCLUDE SEMICOLON? ;
-std::unique_ptr<Statement> Parser::parseStyleInclude() {
-    // 'style' token was already consumed by match()
-    Token pathToken = consume(TokenType::STYLE_INCLUDE, "Expect include path after 'style'.");
-    // Semicolon is optional for style includes based on example
-    match({TokenType::SEMICOLON}); 
-    return std::make_unique<StyleIncludeStmt>(pathToken.lexeme);
-}
-
 // gardenDeclaration -> GARDEN IDENTIFIER SEMICOLON? ;
 std::unique_ptr<Statement> Parser::parseGardenDeclaration() {
     // 'garden' token was already consumed
@@ -193,10 +169,13 @@ std::unique_ptr<Statement> Parser::parseSpeciesDeclaration() {
 
     consume(TokenType::RIGHT_BRACE, "Expect '}' after species body.");
     match({TokenType::SEMICOLON}); // Optional semicolon
+
+    std::cerr << "DEBUG: Returning SpeciesDeclStmt for '" << speciesDecl->name << "' from parseSpeciesDeclaration.\n";
     return speciesDecl;
 }
 
-// visibilityBlock -> (OPEN | HIDDEN | GUARDED) COLON blockStmt ;
+// visibilityBlock -> (OPEN | HIDDEN | GUARDED) SCOPE_RESOLUTION declaration* ;
+// Implicitly ends when next visibility keyword or RIGHT_BRACE is encountered.
 std::unique_ptr<VisibilityBlockStmt> Parser::parseVisibilityBlock() {
      TokenType visibilityType;
      if (match({TokenType::OPEN})) {
@@ -206,23 +185,35 @@ std::unique_ptr<VisibilityBlockStmt> Parser::parseVisibilityBlock() {
      } else if (match({TokenType::GUARDED})) {
          visibilityType = TokenType::GUARDED;
      } else {
-         error(peek(), "Expect 'open:', 'hidden:', or 'guarded:'.");
+         // This part might be reached if a declaration starts without visibility keyword,
+         // handle this based on language grammar (e.g., default visibility or error)
+         // For Hanami, assume visibility keyword is mandatory here.
+         error(peek(), "Expect 'open', 'hidden', or 'guarded' to start a visibility block.");
          // Return dummy value after throwing
          return std::make_unique<VisibilityBlockStmt>(TokenType::ERROR, nullptr);
      }
 
      consume(TokenType::COLON, "Expect ':' after visibility keyword.");
-     // Visibility blocks seem to contain multiple declarations/statements, 
-     // so we parse a block implicitly here.
+     
      auto block = std::make_unique<BlockStmt>();
-     // Parse statements until the next visibility block or the end of the species
-     while (!check(TokenType::RIGHT_BRACE) && 
-            !check(TokenType::OPEN) && 
-            !check(TokenType::HIDDEN) && 
-            !check(TokenType::GUARDED) && 
-            !isAtEnd()) {
+     std::cerr << "DEBUG: Entering visibilityBlock loop, checking: " << tokenTypeToString(peek().type) << "\n";
+     // Loop until }, EOF, or next visibility keyword
+     while (!isAtEnd()) {
+         // *** Check for terminators BEFORE parsing declaration ***
+         if (check(TokenType::RIGHT_BRACE) || 
+             check(TokenType::OPEN) || 
+             check(TokenType::HIDDEN) || 
+             check(TokenType::GUARDED)) {
+             std::cerr << "DEBUG: visibilityBlock loop - Found block end/visibility token: " << tokenTypeToString(peek().type) << ". Breaking loop.\n";
+             break; // Exit the loop
+         }
+         
+         // If not a terminator, parse the declaration
+         std::cerr << "DEBUG: visibilityBlock loop iteration, parsing declaration for token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
          block->statements.push_back(parseDeclaration());
+         std::cerr << "DEBUG: visibilityBlock loop after parseDeclaration, next token: " << tokenTypeToString(peek().type) << "\n";
      }
+     std::cerr << "DEBUG: Exiting visibilityBlock loop naturally, stopped at token: " << tokenTypeToString(peek().type) << "\n";
 
      return std::make_unique<VisibilityBlockStmt>(visibilityType, std::move(block));
 }
@@ -230,12 +221,25 @@ std::unique_ptr<VisibilityBlockStmt> Parser::parseVisibilityBlock() {
 
 // blockStmt -> LEFT_BRACE declaration* RIGHT_BRACE ;
 std::unique_ptr<BlockStmt> Parser::parseBlock() {
-    // LEFT_BRACE consumed by caller or match()
+    std::cerr << "DEBUG: Entering parseBlock(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\\n";
     auto block = std::make_unique<BlockStmt>();
-    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd()) {
-        block->statements.push_back(parseDeclaration());
+    std::cerr << "DEBUG: Entering blockStmt loop, checking: " << tokenTypeToString(peek().type) << "\\n";
+    // Loop until } or EOF
+    while (!isAtEnd()) {
+        // *** Check for terminator BEFORE parsing declaration ***
+        if (check(TokenType::RIGHT_BRACE)) {
+            std::cerr << "DEBUG: blockStmt loop - Found RIGHT_BRACE. Breaking loop.\\n";
+            break; // Exit the loop
+        }
+
+        // If not }, parse the statement directly
+        std::cerr << "DEBUG: blockStmt loop iteration, parsing statement for token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
+        block->statements.push_back(parseStatement()); // Call parseStatement directly
+        std::cerr << "DEBUG: blockStmt loop after parseStatement, next token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
     }
+    std::cerr << "DEBUG: Exiting blockStmt loop naturally, stopped at token: " << tokenTypeToString(peek().type) << "\\n";
     consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
+    std::cerr << "DEBUG: Exiting parseBlock() after consuming brace\\n";
     return block;
 }
 
@@ -257,7 +261,9 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
     }
     consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
 
-    consume(TokenType::ARROW, "Expect '->' for return type.");
+    // consume(TokenType::ARROW, "Expect '->' for return type."); // Lexer sends MINUS, STREAM_IN
+    consume(TokenType::ARROW, "Expect '->' for function return type arrow.");
+
     Token returnType = consume(TokenType::IDENTIFIER, "Expect return type identifier (e.g., void, int).");
 
     consume(TokenType::LEFT_BRACE, "Expect '{' before function body.");
@@ -269,60 +275,75 @@ std::unique_ptr<Statement> Parser::parseFunctionDefinition() {
 }
 
 // Variable declaration or expression statement
-// This is tricky because both can start with an identifier.
 // variableDeclaration -> IDENTIFIER IDENTIFIER (ASSIGN expression)? SEMICOLON ;
 // expressionStatement -> expression SEMICOLON ;
 std::unique_ptr<Statement> Parser::parseVariableDeclarationOrExprStmt() {
-    // Peek ahead to differentiate based on the sequence: TYPE NAME [= or ;]
-    if (check(TokenType::IDENTIFIER)) {
-        // Case 1: Handle std::string structure
-        if (peek().lexeme == "std" && 
+    // Lookahead to differentiate variable declaration from expression statement
+    // Declaration: TYPE_IDENTIFIER NAME_IDENTIFIER (ASSIGN | SEMICOLON)
+    // Need to handle std::string potential: std :: string name ...
+
+    // Check for potential std::string var decl first
+    if (check(TokenType::IDENTIFIER) && peek().lexeme == "std" &&
             current + 3 < tokens.size() &&
-            tokens[current + 1].type == TokenType::SCOPE_RESOLUTION &&
-            tokens[current + 2].type == TokenType::IDENTIFIER &&
-            tokens[current + 3].type == TokenType::IDENTIFIER) {
-            
-            Token stdToken = advance(); // Consume 'std'
-            consume(TokenType::SCOPE_RESOLUTION, "Expect '::'.");
-            Token typeNamePart2 = consume(TokenType::IDENTIFIER, "Expect type name after '::'.");
-            Token varName = consume(TokenType::IDENTIFIER, "Expect variable name.");
-            
-            // Important: Use "string" instead of "std::string" for semantic analyzer
-            // But keep track of the full type name for future use if needed
-            std::string actualTypeName = "string";
+        tokens[current+1].type == TokenType::SCOPE_RESOLUTION &&
+        tokens[current+2].type == TokenType::IDENTIFIER && tokens[current+2].lexeme == "string" &&
+        tokens[current+3].type == TokenType::IDENTIFIER) // name
+    {
+        // Check if ASSIGN or SEMICOLON follows the name
+        if (current + 4 < tokens.size() &&
+            (tokens[current+4].type == TokenType::ASSIGN || tokens[current+4].type == TokenType::SEMICOLON))
+        {
+             advance(); // std
+             advance(); // ::
+             Token typeName = advance(); // string
+             Token varName = advance(); // name
+             std::string actualTypeName = "string"; // Use simplified type
             
             std::unique_ptr<Expression> initializer = nullptr;
             if (match({TokenType::ASSIGN})) {
                 initializer = parseExpression();
             }
-            
-            consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+             consume(TokenType::SEMICOLON, "Expect ';' after std::string variable declaration.");
             return std::make_unique<VariableDeclStmt>(actualTypeName, varName.lexeme, std::move(initializer));
         }
-        
-        // Case 2: Regular variable declaration (type name)
-        if (current + 1 < tokens.size() && tokens[current + 1].type == TokenType::IDENTIFIER) {
-            // Additional check to see if it's actually a variable declaration
-            if (current + 2 < tokens.size()) {
-                TokenType thirdTokenType = tokens[current + 2].type;
-                if (thirdTokenType == TokenType::ASSIGN || thirdTokenType == TokenType::SEMICOLON) {
-                    // Looks like a variable declaration
-                    Token typeName = advance(); // Consume type
-                    Token varName = advance(); // Consume name
+        // If not followed by ASSIGN/SEMICOLON, let it be parsed as expression (e.g., std::string() call)
+    }
+
+    // Check for regular variable declaration: IDENTIFIER IDENTIFIER (ASSIGN | SEMICOLON)
+    bool potentialVarDecl = check(TokenType::IDENTIFIER) &&
+                            current + 1 < tokens.size() && tokens[current + 1].type == TokenType::IDENTIFIER &&
+                            current + 2 < tokens.size() &&
+                            (tokens[current + 2].type == TokenType::ASSIGN || tokens[current + 2].type == TokenType::SEMICOLON);
+
+    if (potentialVarDecl)
+    {
+        Token typeName = advance(); // Consume TYPE
+        Token varName = advance();  // Consume NAME
+        std::cerr << "DEBUG: Potential VarDecl identified: " << typeName.lexeme << " " << varName.lexeme << ", next: " << tokenTypeToString(peek().type) << "\n";
                     
                     std::unique_ptr<Expression> initializer = nullptr;
                     if (match({TokenType::ASSIGN})) {
+             std::cerr << "DEBUG: Parsing initializer for " << varName.lexeme << "...\n";
                         initializer = parseExpression();
+             std::cerr << "DEBUG: Finished initializer for " << varName.lexeme << ", next: " << tokenTypeToString(peek().type) << "\n";
                     }
                     
-                    consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
+        // Check for semicolon AFTER attempting to parse initializer
+        if (check(TokenType::SEMICOLON)) {
+            advance(); // Consume SEMICOLON
+            std::cerr << "DEBUG: Successfully parsed VarDecl: " << typeName.lexeme << " " << varName.lexeme << "\n";
                     return std::make_unique<VariableDeclStmt>(typeName.lexeme, varName.lexeme, std::move(initializer));
-                }
-            }
+        } else {
+            // This case should ideally not happen if ASSIGN was matched
+            // If no ASSIGN was matched, SEMICOLON is mandatory
+            error(peek(), "Expect ';' after variable declaration.");
+            // Need to backtrack if error occurs? For now, error is thrown.
+            return nullptr; // Unreachable
         }
     }
     
-    // If it doesn't match the variable declaration pattern, parse it as an expression statement.
+    // If it doesn't match the variable declaration patterns, parse it as an expression statement.
+    std::cerr << "DEBUG: Parsing as expression statement, token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
     return parseExpressionStatement();
 }
 
@@ -330,6 +351,7 @@ std::unique_ptr<Statement> Parser::parseVariableDeclarationOrExprStmt() {
 
 // branchStmt -> BRANCH LEFT_PAREN expression RIGHT_PAREN blockStmt (ELSE BRANCH LEFT_PAREN expression RIGHT_PAREN blockStmt)* (ELSE blockStmt)? ;
 std::unique_ptr<Statement> Parser::parseBranchStatement() {
+    std::cerr << "DEBUG: ENTERING parseBranchStatement(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
     // 'branch' consumed
     auto branchStmt = std::make_unique<BranchStmt>();
 
@@ -338,40 +360,50 @@ std::unique_ptr<Statement> Parser::parseBranchStatement() {
     auto condition = parseExpression();
     consume(TokenType::RIGHT_PAREN, "Expect ')' after branch condition.");
     consume(TokenType::LEFT_BRACE, "Expect '{' before branch body.");
+    std::cerr << "DEBUG: parseBranchStatement() - BEFORE parsing first block, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
     auto body = parseBlock();
+    std::cerr << "DEBUG: parseBranchStatement() - AFTER parsing first block, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
     branchStmt->branches.emplace_back(std::move(condition), std::move(body));
 
     // Else branch (else if)
-    while (match({TokenType::ELSE}) && check(TokenType::BRANCH)) {
-        advance(); // Consume 'branch'
+    while (check(TokenType::ELSE) && current + 1 < tokens.size() && tokens[current + 1].type == TokenType::BRANCH) {
+        advance(); // Consume ELSE
+        advance(); // Consume BRANCH
         consume(TokenType::LEFT_PAREN, "Expect '(' after 'else branch'.");
         auto elseIfCondition = parseExpression();
         consume(TokenType::RIGHT_PAREN, "Expect ')' after branch condition.");
-        consume(TokenType::LEFT_BRACE, "Expect '{' before branch body.");
+        consume(TokenType::LEFT_BRACE, "Expect '{' before else branch body.");
+        std::cerr << "DEBUG: parseBranchStatement() - BEFORE parsing else-if block, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
         auto elseIfBody = parseBlock();
+        std::cerr << "DEBUG: parseBranchStatement() - AFTER parsing else-if block, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
         branchStmt->branches.emplace_back(std::move(elseIfCondition), std::move(elseIfBody));
     }
 
     // Else block
-    if (previous().type == TokenType::ELSE) { // Check if the last match was just 'else'
+    if (match({TokenType::ELSE})) { // This should now correctly find the ELSE if it wasn't consumed above
          consume(TokenType::LEFT_BRACE, "Expect '{' before else body.");
+         std::cerr << "DEBUG: parseBranchStatement() - BEFORE parsing final else block, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
          auto elseBody = parseBlock();
-         // Add with null condition for else
+         std::cerr << "DEBUG: parseBranchStatement() - AFTER parsing final else block, current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
          branchStmt->branches.emplace_back(nullptr, std::move(elseBody));
     }
 
+    std::cerr << "DEBUG: RETURNING from parseBranchStatement(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ") at line " << peek().line << "\\n";
     return branchStmt;
 }
 
 
 // ioStmt -> (BLOOM | WATER) (STREAM_OUT | STREAM_IN) expression ( (STREAM_OUT | STREAM_IN) expression )* SEMICOLON ;
 std::unique_ptr<Statement> Parser::parseIOStatement(TokenType ioType) {
-    // ioType (BLOOM or WATER) consumed
+    std::cerr << "DEBUG: Entering parseIOStatement for type " << tokenTypeToString(ioType) << ", next token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
     TokenType direction;
+    // Consume the *first* operator
     if (match({TokenType::STREAM_OUT})) {
         direction = TokenType::STREAM_OUT;
+        std::cerr << "DEBUG: parseIOStatement matched initial STREAM_OUT, next token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
     } else if (match({TokenType::STREAM_IN})) {
         direction = TokenType::STREAM_IN;
+        std::cerr << "DEBUG: parseIOStatement matched initial STREAM_IN, next token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
     } else {
         error(peek(), "Expect '<<' or '>>' after bloom/water.");
         return nullptr; // Unreachable
@@ -379,12 +411,19 @@ std::unique_ptr<Statement> Parser::parseIOStatement(TokenType ioType) {
 
     auto ioStmt = std::make_unique<IOStmt>(ioType, direction);
     
-    do {
+    std::cerr << "DEBUG: parseIOStatement parsing first expression... current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+    ioStmt->expressions.push_back(parseExpression());
+    std::cerr << "DEBUG: parseIOStatement finished first expression, next token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+
+    // Loop while subsequent matching operators are found and consumed
+    while (match({direction})) { 
+        std::cerr << "DEBUG: parseIOStatement matched subsequent " << tokenTypeToString(direction) << ", parsing next expression...\n";
         ioStmt->expressions.push_back(parseExpression());
-        // Allow chaining only with the same direction operator
-    } while (match({direction})); 
+        std::cerr << "DEBUG: parseIOStatement finished subsequent expression, next token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+    } 
 
     consume(TokenType::SEMICOLON, "Expect ';' after I/O statement.");
+    std::cerr << "DEBUG: Exiting parseIOStatement after consuming semicolon.\n";
     return ioStmt;
 }
 
@@ -397,6 +436,7 @@ std::unique_ptr<Statement> Parser::parseReturnStatement() {
         value = parseExpression();
     }
     consume(TokenType::SEMICOLON, "Expect ';' after blossom (return) value.");
+    std::cerr << "DEBUG: Returning ReturnStmt from parseReturnStatement.\n";
     return std::make_unique<ReturnStmt>(std::move(value));
 }
 
@@ -404,6 +444,7 @@ std::unique_ptr<Statement> Parser::parseReturnStatement() {
 std::unique_ptr<Statement> Parser::parseExpressionStatement() {
     auto expr = parseExpression();
     consume(TokenType::SEMICOLON, "Expect ';' after expression.");
+    // Removed the extra check here, as parseVariableDeclarationOrExprStmt should now correctly handle declarations.
     return std::make_unique<ExpressionStmt>(std::move(expr));
 }
 
@@ -451,14 +492,37 @@ std::unique_ptr<Expression> Parser::parseBinaryHelper(
     std::function<std::unique_ptr<Expression>()> parseOperand,
     const std::vector<TokenType>& operators
 ) {
+    std::cerr << "DEBUG: Entering parseBinaryHelper for operators: [ ";
+    for(const auto& op : operators) std::cerr << tokenTypeToString(op) << " ";
+    std::cerr << "]\n";
+    
     auto expr = parseOperand();
 
-    while (parser->match(operators)) {
+    while (true) { // Keep looping as long as matching operators are found
+        bool matchedOperator = false;
+        for (const TokenType& opType : operators) {
+             if (parser->check(opType)) { // Use check() first without consuming
+                  std::cerr << "DEBUG: parseBinaryHelper - Found matching operator: " 
+                           << tokenTypeToString(opType) 
+                           << " at token: " << tokenTypeToString(parser->peek().type) 
+                           << " (" << parser->peek().lexeme << ")\n";
+                 parser->advance(); // Consume the matched operator
         Token opToken = parser->previous();
         auto right = parseOperand();
         expr = std::make_unique<BinaryOpExpr>(opToken.type, std::move(expr), std::move(right));
+                 matchedOperator = true;
+                 break; // Exit the inner for loop once an operator is matched and handled
+             }
+        }
+        
+        if (!matchedOperator) { 
+             std::cerr << "DEBUG: parseBinaryHelper - No more matching operators found. Current token: " 
+                      << tokenTypeToString(parser->peek().type) << " (" << parser->peek().lexeme << ")\n";
+            break; // Exit the while loop if no operator in the list matched
+        }
     }
 
+    std::cerr << "DEBUG: Exiting parseBinaryHelper\n";
     return expr;
 }
 
@@ -474,42 +538,46 @@ std::unique_ptr<Expression> Parser::parseLogicalAnd() {
 
 // equality -> comparison ( (NOT_EQUAL | EQUAL) comparison )* ;
 std::unique_ptr<Expression> Parser::parseEquality() {
-    return parseBinaryHelper(this, [this]() { return parseComparison(); }, {TokenType::NOT_EQUAL, TokenType::EQUAL}); // Pass 'this'
+    return parseBinaryHelper(this, [this]() { return parseComparison(); }, {TokenType::NOT_EQUAL, TokenType::EQUAL}); // EQUAL (==) is correct here
 }
 
 // comparison -> term ( (GREATER | GREATER_EQUAL | LESS | LESS_EQUAL) term )* ;
 std::unique_ptr<Expression> Parser::parseComparison() {
-    return parseBinaryHelper(this, [this]() { return parseTerm(); }, 
-        {TokenType::GREATER, TokenType::GREATER_EQUAL, TokenType::LESS, TokenType::LESS_EQUAL}); // Pass 'this'
+    std::cerr << "DEBUG: Entering parseComparison(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+    auto expr = parseBinaryHelper(this, [this]() { return parseTerm(); }, 
+        {TokenType::GREATER, TokenType::GREATER_EQUAL, TokenType::LESS, TokenType::LESS_EQUAL}); // This list seems correct based on lexer
+    std::cerr << "DEBUG: Exiting parseComparison(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n"; 
+    return expr;
 }
 
 // term -> factor ( (MINUS | PLUS) factor )* ;
 std::unique_ptr<Expression> Parser::parseTerm() {
-    return parseBinaryHelper(this, [this]() { return parseFactor(); }, {TokenType::MINUS, TokenType::PLUS}); // Pass 'this'
+    std::cerr << "DEBUG: Entering parseTerm(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+    auto expr = parseBinaryHelper(this, [this]() { return parseFactor(); }, {TokenType::MINUS, TokenType::PLUS});
+    std::cerr << "DEBUG: Exiting parseTerm()\n";
+    return expr;
 }
 
 // factor -> unary ( (SLASH | STAR | MODULO) unary )* ;
 std::unique_ptr<Expression> Parser::parseFactor() {
-    return parseBinaryHelper(this, [this]() { return parseUnary(); }, {TokenType::SLASH, TokenType::STAR, TokenType::MODULO}); // Pass 'this'
+    std::cerr << "DEBUG: Entering parseFactor(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+    auto expr = parseBinaryHelper(this, [this]() { return parseUnary(); }, {TokenType::SLASH, TokenType::STAR, TokenType::MODULO});
+    std::cerr << "DEBUG: Exiting parseFactor()\n";
+    return expr;
 }
 
 // unary -> (NOT | MINUS) unary | call ;
 std::unique_ptr<Expression> Parser::parseUnary() {
+    std::cerr << "DEBUG: Entering parseUnary(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
     if (match({TokenType::NOT, TokenType::MINUS})) {
         Token opToken = previous();
         auto right = parseUnary();
-        // Represent unary as BinaryOpExpr with nullptr left operand for simplicity?
-        // Or create a dedicated UnaryOpExpr node.
-        // Let's create UnaryOpExpr for clarity (add this to parser.h if needed)
-        // For now, using BinaryOpExpr with null left is a hack:
-        // return std::make_unique<BinaryOpExpr>(opToken.type, nullptr, std::move(right));
-        // Proper UnaryOpExpr would be better.
-        // Let's stick to the plan and use BinaryOpExpr for now
-        // TODO: Revisit this if UnaryOpExpr is preferred.
-         error(opToken, "Unary operators not fully implemented yet."); // Placeholder
-         return nullptr; // Should return a UnaryOpExpr ideally
+         error(opToken, "Unary operators not fully implemented yet."); 
+         return nullptr; 
     }
-    return parseCall();
+    auto expr = parseCall();
+    std::cerr << "DEBUG: Exiting parseUnary()\n";
+    return expr;
 }
 
 // Helper to finish parsing a function call - now a static member
@@ -552,41 +620,57 @@ std::unique_ptr<Expression> Parser::parseCall() {
 
 // primary -> NUMBER | STRING | TRUE | FALSE | IDENTIFIER | LEFT_PAREN expression RIGHT_PAREN ;
 // Handle std::string special case
+// Ensure FLOAT_LITERAL and DOUBLE_LITERAL are checked
 std::unique_ptr<Expression> Parser::parsePrimary() {
-    if (match({TokenType::FALSE})) return std::make_unique<BooleanLiteralExpr>(false);
-    if (match({TokenType::TRUE})) return std::make_unique<BooleanLiteralExpr>(true);
+    std::cerr << "DEBUG: Entering parsePrimary(), current token: " << tokenTypeToString(peek().type) << " (" << peek().lexeme << ")\n";
+    
+    if (match({TokenType::FALSE})) { 
+        std::cerr << "DEBUG: parsePrimary() matched FALSE\n"; 
+        return std::make_unique<BooleanLiteralExpr>(false); 
+    }
+    if (match({TokenType::TRUE})) { 
+        std::cerr << "DEBUG: parsePrimary() matched TRUE\n"; 
+        return std::make_unique<BooleanLiteralExpr>(true); 
+    }
 
     if (match({TokenType::NUMBER})) {
+        std::cerr << "DEBUG: parsePrimary() matched NUMBER: " << previous().lexeme << "\n";
         return std::make_unique<NumberLiteralExpr>(previous().lexeme);
     }
-    if (match({TokenType::STRING})) {
-        return std::make_unique<StringLiteralExpr>(previous().lexeme);
-    }
     if (match({TokenType::FLOAT_LITERAL})) {
+        std::cerr << "DEBUG: parsePrimary() matched FLOAT_LITERAL: " << previous().lexeme << "\n";
         return std::make_unique<FloatLiteralExpr>(previous().lexeme);
     }
     if (match({TokenType::DOUBLE_LITERAL})) {
+        std::cerr << "DEBUG: parsePrimary() matched DOUBLE_LITERAL: " << previous().lexeme << "\n";
         return std::make_unique<DoubleLiteralExpr>(previous().lexeme);
+    }
+    if (match({TokenType::STRING})) {
+        std::cerr << "DEBUG: parsePrimary() matched STRING: \"" << previous().lexeme << "\"\n";
+        return std::make_unique<StringLiteralExpr>(previous().lexeme);
     }
 
     if (match({TokenType::IDENTIFIER})) {
-         // Handle `std::string` usage
+         std::cerr << "DEBUG: parsePrimary() matched IDENTIFIER: " << previous().lexeme << "\n";
+         // Handle `std::string` usage - Check if it was already handled or if it appears here
          if (previous().lexeme == "std" && match({TokenType::SCOPE_RESOLUTION})) {
              Token typeName = consume(TokenType::IDENTIFIER, "Expect type name after 'std::'.");
-             // This returns an identifier like "std::string" which might be used 
-             // in variable declarations or potentially other contexts. 
-             // For now, represent it as a single IdentifierExpr.
+             if (typeName.lexeme == "string") {
+                 std::cerr << "DEBUG: parsePrimary() resolved std::string identifier\n";
+                 return std::make_unique<IdentifierExpr>("string");
+             }
+             std::cerr << "DEBUG: parsePrimary() resolved std::" << typeName.lexeme << " identifier\n";
              return std::make_unique<IdentifierExpr>("std::" + typeName.lexeme);
          }
         return std::make_unique<IdentifierExpr>(previous().lexeme);
     }
 
     if (match({TokenType::LEFT_PAREN})) {
+        std::cerr << "DEBUG: parsePrimary() matched LEFT_PAREN, parsing grouped expression\n";
         auto expr = parseExpression();
         consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
-        // Create a GroupingExpr if needed, or just return the inner expression
-        // return std::make_unique<GroupingExpr>(std::move(expr)); 
-        return expr; // Often grouping is implicit in the AST structure
+        std::cerr << "DEBUG: parsePrimary() finished grouped expression\n";
+        return expr; 
     }
 
     // If none of the above match, it's an error.
