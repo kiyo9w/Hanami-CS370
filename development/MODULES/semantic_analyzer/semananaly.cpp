@@ -330,8 +330,9 @@ private:
 
                 for (size_t i = 0; i < expectedParams.size(); ++i) {
                     std::string argType = typeOf(call->arguments[i].get());
-                    if (!argType.empty() && argType != expectedParams[i]) {
-                        error("Argument type mismatch in call to '" + calleeIdent->name + "'. Expected '" + 
+                    bool compatible = checkCompatibility(expectedParams[i], argType);
+                    if (!argType.empty() && !compatible) {
+                        error("Argument type mismatch in call to '" + calleeIdent->name + "'. Expected compatible with '" + 
                               expectedParams[i] + "' for argument " + std::to_string(i+1) + ", but got '" + argType + "'.");
                         // Continue checking other args, but overall call result is invalid
                     }
@@ -364,8 +365,9 @@ private:
 
                 for (size_t i = 0; i < expectedParams.size(); ++i) {
                     std::string argType = typeOf(call->arguments[i].get());
-                    if (!argType.empty() && argType != expectedParams[i]) {
-                        error("Argument type mismatch in call to '" + methodName + "'. Expected '" +
+                    bool compatible = checkCompatibility(expectedParams[i], argType);
+                    if (!argType.empty() && !compatible) {
+                        error("Argument type mismatch in call to '" + methodName + "'. Expected compatible with '" +
                               expectedParams[i] + "' for argument " + std::to_string(i+1) + ", but got '" + argType + "'.");
                         // Continue checking other args
                     }
@@ -444,6 +446,7 @@ private:
                  // Allow assigning int to float/double, or float to double
                  if ((leftType == "float" || leftType == "double") && rightType == "int") compatible = true;
                  if (leftType == "double" && rightType == "float") compatible = true;
+                 if (leftType == "float" && rightType == "double") compatible = true;
              }
 
              if (!leftType.empty() && !rightType.empty() && !compatible) {
@@ -622,7 +625,8 @@ private:
 
          // --- Regular variable declaration ---
          // Check type exists
-         if (node->typeName != "int" && node->typeName != "string" && node->typeName != "bool") {
+         if (node->typeName != "int" && node->typeName != "string" && node->typeName != "bool" &&
+             node->typeName != "float" && node->typeName != "double") {
              SymbolEntry* typeEntry = symbolTable_.lookup(node->typeName);
              if (!typeEntry || typeEntry->kind != SymbolType::SPECIES) { // Allow species types
                  error("Unknown type '" + node->typeName + "' for variable '" + node->varName + "'.");
@@ -707,16 +711,17 @@ private:
 
         if (currentFunctionReturnType_.empty()) {
             error("'blossom' (return) statement found outside of a function definition.");
-        } else if (returnExprType != currentFunctionReturnType_) {
-             if (currentFunctionReturnType_ == "void" && node->returnValue) {
-                  error("Cannot return a value from a 'void' function.");
-             } else if (currentFunctionReturnType_ != "void" && !node->returnValue){
-                  error("Must return a value of type '" + currentFunctionReturnType_ + "' from non-void function.");
-             }
-             else {
-                 // Allow returning int literal 0 from int main even if declared different? No, stick to declared type.
-                 error("Return type mismatch: Cannot return value of type '" + returnExprType +
-                       "' from function expecting '" + currentFunctionReturnType_ + "'.");
+        } else {
+            bool typesCompatible = checkCompatibility(currentFunctionReturnType_, returnExprType);
+            if (!typesCompatible) {
+                if (currentFunctionReturnType_ == "void" && node->returnValue) {
+                    error("Cannot return a value from a 'void' function.");
+                } else if (currentFunctionReturnType_ != "void" && !node->returnValue) {
+                    error("Must return a value of type '" + currentFunctionReturnType_ + "' from non-void function.");
+                } else {
+                    error("Return type mismatch: Cannot return value of type '" + returnExprType +
+                          "' from function expecting '" + currentFunctionReturnType_ + "'.");
+                }
             }
         }
     }
@@ -753,6 +758,22 @@ private:
              }
              // Could add checks for << on complex types if needed (e.g., require toString method)
         }
+    }
+
+    bool checkCompatibility(const std::string& expectedType, const std::string& actualType) {
+        // Checks if actualType can be implicitly converted to expectedType
+        if (expectedType == actualType) return true;
+        
+        // Allow int -> float, int -> double, float -> double
+        if (expectedType == "float" && actualType == "int") return true;
+        if (expectedType == "double" && actualType == "int") return true;
+        if (expectedType == "double" && actualType == "float") return true;
+        
+        // Allow double -> float (potentially lossy, add warning later if needed)
+        if (expectedType == "float" && actualType == "double") return true;
+        
+        // Disallow other conversions for now
+        return false;
     }
 };
 
