@@ -3,35 +3,48 @@
 #include <string>
 #include <fstream>  // For file streams
 #include <sstream>  // For reading file content
-#include <iomanip>  // For std::quoted
 #include "../common/token.h"
 #include "lexer.h" // Include Lexer class definition
 #include "../common/utils.h" // Include the header for tokenTypeToString declaration
+
+// Helper function to escape strings for output file
+std::string escapeStringForOutput(const std::string& s) {
+    std::string escaped;
+    escaped.reserve(s.length()); // Pre-allocate for potential expansion
+    for (char c : s) {
+        switch (c) {
+            case '\\': escaped += "\\\\"; break;
+            case '\"': escaped += "\\\""; break;
+            case '\n': escaped += "\\n"; break;
+            case '\r': escaped += "\\r"; break;
+            case '\t': escaped += "\\t"; break;
+            // Add other escapes if needed
+            default: escaped += c; break;
+        }
+    }
+    return escaped;
+}
 
 // Print token information in a readable format
 void printToken(const Token& token) {
     // Use the shared tokenTypeToString from utils.h
     std::string typeStr = tokenTypeToString(token.type);
-
+    
     std::cout << "Token: " << typeStr;
-
+    
     // Print lexeme for identifiers, numbers, literals, and strings
-    if (token.type == TokenType::IDENTIFIER ||
-        token.type == TokenType::NUMBER ||
+    if (token.type == TokenType::IDENTIFIER || 
+        token.type == TokenType::NUMBER || 
         token.type == TokenType::FLOAT_LITERAL || // Added
         token.type == TokenType::DOUBLE_LITERAL || // Added
         token.type == TokenType::STRING ||
         token.type == TokenType::STYLE_INCLUDE ||
         token.type == TokenType::ERROR) {
-        std::cout << " (\"";
-        if (token.type == TokenType::STRING || token.type == TokenType::STYLE_INCLUDE) {
-            std::cout << std::quoted(token.lexeme);
-        } else {
-            std::cout << token.lexeme;
-        }
-         std::cout << "\")";
+        std::cout << " (\\\""; // Keep std::quoted for console debug printing if desired
+        std::cout << escapeStringForOutput(token.lexeme); // Use escaping for console too? Or keep original lexeme? Let's escape for consistency.
+         std::cout << "\\\")";
     }
-
+    
     std::cout << " at line " << token.line << ", column " << token.column << std::endl;
 }
 
@@ -120,7 +133,7 @@ int main(int argc, char* argv[]) {
         std::string typeStr = tokenTypeToString(token.type);
         outFile << typeStr;
         
-        // Add lexeme if applicable, handling quotes for strings/paths
+        // Add lexeme if applicable, escaping strings/paths
         if (token.type == TokenType::IDENTIFIER ||
             token.type == TokenType::NUMBER ||
             token.type == TokenType::FLOAT_LITERAL || // Added
@@ -130,11 +143,8 @@ int main(int argc, char* argv[]) {
             token.type == TokenType::ERROR) // Include lexeme for ERROR tokens too
         {
              outFile << " ";
-             if (token.type == TokenType::STRING || token.type == TokenType::STYLE_INCLUDE) {
-                 outFile << std::quoted(token.lexeme); // Add quotes for strings/paths
-             } else {
-                 outFile << token.lexeme;
-             }
+             // Manually escape the lexeme before writing
+             outFile << escapeStringForOutput(token.lexeme); 
         }
         
         outFile << " " << token.line << " " << token.column << std::endl;

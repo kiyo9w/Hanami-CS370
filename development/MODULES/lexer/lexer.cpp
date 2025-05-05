@@ -103,7 +103,7 @@ char Lexer::advance() {
 
     bool Lexer::match(char expected) {
         if(isEnd()) return false;
-        if(source[current] != expected) return false;
+        if(source[current + 1] != expected) return false;
 
         current++;
         column++;
@@ -219,7 +219,7 @@ char Lexer::advance() {
                 if (peek() == '*' && peekNext() == '/') {
                     advance(); advance(); // Consume */
                     break;
-                }
+            }
                 if (isEnd()) { // Unterminated comment
                      return {TokenType::ERROR, "Unterminated block comment", commentStartLine, commentStartCol};
                 }
@@ -279,33 +279,33 @@ char Lexer::advance() {
         // --- Handle Multi-Character Operators & Punctuation FIRST --- 
         // Order matters: check longer tokens before shorter prefixes
         if (c == '<') {
-             if (match('<')) return {TokenType::STREAM_OUT, "<<", startLine, startColumn};
-             if (match('=')) return {TokenType::LESS_EQUAL, "<=", startLine, startColumn};
+             if (match('<')) {advance(); return {TokenType::STREAM_OUT, "<<", startLine, startColumn};}
+             if (match('=')) {advance(); return {TokenType::LESS_EQUAL, "<=", startLine, startColumn};}
              // If neither match succeeded, consume c and return LESS
              advance();
              return {TokenType::LESS, "<", startLine, startColumn};
         }
         if (c == '>') {
-             if (match('>')) return {TokenType::STREAM_IN, ">>", startLine, startColumn};
-             if (match('=')) return {TokenType::GREATER_EQUAL, ">=", startLine, startColumn};
+             if (match('>')) {advance(); return {TokenType::STREAM_IN, ">>", startLine, startColumn};}
+             if (match('=')) {advance(); return {TokenType::GREATER_EQUAL, ">=", startLine, startColumn};}
              // If neither match succeeded, consume c and return GREATER
-             advance();
+                    advance();
              return {TokenType::GREATER, ">", startLine, startColumn};
         }
         if (c == '=') {
-             if (match('=')) return {TokenType::EQUAL, "==", startLine, startColumn};
-              // If not '==', consume c and return ASSIGN
-             advance();
+             if (match('=')) {advance(); return {TokenType::EQUAL, "==", startLine, startColumn};}
+              // If not '==', consume the original '=' and return ASSIGN
+             advance(); // Consume the '='
              return {TokenType::ASSIGN, "=", startLine, startColumn};
         }
          if (c == '!') {
-             if (match('=')) return {TokenType::NOT_EQUAL, "!=", startLine, startColumn};
+             if (match('=')) {advance(); return {TokenType::NOT_EQUAL, "!=", startLine, startColumn};}
              // If not '!=', consume c and return NOT
              advance();
              return {TokenType::NOT, "!", startLine, startColumn};
         }
         if (c == '-') {
-             if (match('>')) return {TokenType::ARROW, "->", startLine, startColumn};
+             if (match('>')) {advance(); return {TokenType::ARROW, "->", startLine, startColumn};}
              // Check if it's a negative number (BEFORE treating as minus operator)
              if (isdigit(peek()) || (peek() == '.' && isdigit(peekNext()))) {
                  return Number(); // Let Number() handle it, including the leading '-'
@@ -315,7 +315,7 @@ char Lexer::advance() {
              return {TokenType::MINUS, "-", startLine, startColumn};
         }
         if (c == ':') {
-            if (match(':')) return {TokenType::SCOPE_RESOLUTION, "::", startLine, startColumn};
+            if (match(':')) {advance(); return {TokenType::SCOPE_RESOLUTION, "::", startLine, startColumn};}
              // If not '::', consume c and return COLON
             advance();
             return {TokenType::COLON, ":", startLine, startColumn};
@@ -325,8 +325,8 @@ char Lexer::advance() {
         if (isdigit(c) || (c == '.' && isdigit(peek()))) // Check current char or '.' followed by digit
         {
             return Number();
-        }
-
+            }
+    
         // --- Handle Strings ---
         if (c == '"') {
             return string(); // string() handles consuming the rest
@@ -343,7 +343,7 @@ char Lexer::advance() {
             auto it = keywords.find(lexeme);
             if (it != keywords.end()) {
                 return {it->second, lexeme, startLine, startColumn};
-            }
+                }
             return {TokenType::IDENTIFIER, lexeme, startLine, startColumn};
         }
 
@@ -421,7 +421,7 @@ char Lexer::advance() {
         std::string lexeme = "";
         TokenType inferredType = TokenType::NUMBER; // Start assuming integer
         int startPos = current; // Initial position for loop detection
-
+        
         // 1. Optional Leading Sign
         if (peek() == '-' || peek() == '+') {
             if (!isdigit(peekNext()) && peekNext() != '.') {
@@ -457,7 +457,7 @@ char Lexer::advance() {
                 } else {
                       // Just a lone '.' followed by '.'? Let scanToken handle it.
                       return {TokenType::ERROR, "Invalid token start", startLine, startColumn};
-                 }
+                }
             }
             // Check if there are digits *after* the dot
             if (isdigit(peekNext())) {
@@ -491,8 +491,8 @@ char Lexer::advance() {
             // This path indicates an error or logic flaw in scanToken calling Number()
             if (!isEnd()) advance(); // Prevent infinite loop
             return {TokenType::ERROR, "Number() called inappropriately", startLine, startColumn};
-        }
-
+            }
+            
         // 4. Consume Exponent (if present)
         bool hasExponent = false;
         if (peek() == 'e' || peek() == 'E') {
@@ -505,7 +505,7 @@ char Lexer::advance() {
                 handleExponent(lexeme, false); // false = decimal exponent
                 if (lexeme == beforeExp) { // handleExponent should have consumed digits
                     return {TokenType::ERROR, "Invalid exponent format (missing digits)", startLine, startColumn};
-                }
+                    }
                 hasExponent = true;
             }
             // else: 'e' not followed by digit/sign, treat as separate identifier
@@ -710,7 +710,7 @@ char Lexer::advance() {
             if (!hasMantissaDigits) {
                  return {TokenType::ERROR, "Invalid hex literal (missing digits)", startLine, startColumn};
             }
-
+            
             // Hex exponent (p/P)
             if (peek() == 'p' || peek() == 'P') {
                  char next = peekNext();
@@ -726,8 +726,8 @@ char Lexer::advance() {
                       // p/P not followed by valid exponent - error or treat p as identifier?
                       // Let's error for now, as p is required for hex float exponent
                       return {TokenType::ERROR, "Invalid hex exponent (missing digits or sign)", startLine, startColumn};
-                 }
             }
+        }
             
             // Determine final type if not already float/double
             if (type == TokenType::NUMBER && (hasDecimalPoint || hasExponent)) {
@@ -771,7 +771,7 @@ char Lexer::advance() {
              if (current == startPos) { // Check progress
                  if (!isEnd()) advance();
                   return {TokenType::ERROR, "Hex number parsing failed to advance", startLine, startColumn};
-             }
+            }
              return {type, lexeme, startLine, startColumn};
 
         } else if (prefix == 'b' || prefix == 'B') {
@@ -824,11 +824,11 @@ char Lexer::advance() {
         int startLine = line;
         std::string lexeme;
         advance(); // Consume the opening " that scanToken detected
-
+        
         // Read until the closing double quote
         while (!isEnd() && peek() != '"') {
             char c = peek();
-
+            
             // Handle escape sequences
             if (c == '\\' && !isEnd()) {
                 advance(); // Consume the backslash
@@ -860,15 +860,15 @@ char Lexer::advance() {
                 lexeme += advance(); // Consume the character
             }
         }
-
+        
         // Check for unterminated string
         if (isEnd()) {
             return {TokenType::ERROR, "Unterminated string literal", startLine, startColumn};
         }
-
+        
         // Consume the closing double quote
         advance();
-
+        
         // Return the STRING token with the processed lexeme (escape sequences interpreted)
         return {TokenType::STRING, lexeme, startLine, startColumn};
     }
