@@ -3,6 +3,7 @@
 % Using format from introduction.tex
 % Incorporating content from overview.tex and system_architecture.tex
 % Updated Section II based on user input
+% --- MODIFICATIONS FOR OVERFLOW & TABLE PLACEMENT ---
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \documentclass[conference]{IEEEtran}
 
@@ -19,13 +20,23 @@
 \usepackage{placeins} % Added for \FloatBarrier
 \usepackage{float}
 \usepackage{pdfpages}
+\usepackage{ltxtable}
+\usepackage{ltablex} % Should be loaded after array, if array is explicitly loaded. It is.
+\usepackage{caption}
+
 
 % Additional necessary packages from other files
 \usepackage{longtable} % From overview.tex
 \usepackage{array}     % Dependency for longtable column types
 \usepackage{enumitem}  % From system_architecture.tex
-%\usepackage{tikz}      % Loaded in system_architecture.tex, uncomment if needed
-%\usepackage{float}     % Loaded in system_architecture.tex, uncomment if needed (be careful with [H])
+
+% --- ADDED PACKAGES ---
+\usepackage{microtype} % Improves typography and helps prevent overfull hboxes
+\usepackage{makecell}  % For multi-line cells in tables, e.g., for table headers
+% \usepackage{afterpage} % For improved control over page breaks (Table III) - REMOVED for new strategy
+\usepackage{stfloats}  % For better placement of double-column floats (Tables IV, V)
+%\usepackage{dblfloatfix} % To fix issues with double-column float placement (Tables IV, V)
+
 
 % Change hyperlink color from red to blue (from introduction.tex)
 \hypersetup{
@@ -45,7 +56,16 @@
     frame=single,
     rulecolor=\color{black!30},
     language=C++, % Set a default language for highlighting
-    showstringspaces=false % Don't show spaces as special characters in strings
+    showstringspaces=false, % Don't show spaces as special characters in strings
+    % --- MODIFIED/ADDED LISTINGS OPTIONS ---
+    breakatwhitespace=true, % Prefer breaking at whitespace
+    breakindent=0pt,          % No indent for broken lines (or set to a small value like 10pt if preferred)
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!40!black},
+    stringstyle=\color{purple},
+    identifierstyle=\color{black},
+    emph={garden,species,seed,grow,bloom,water,root,style,branch,blossom,open,hidden,guarded}, % Custom keywords for Hanami
+    emphstyle=\color{orange!80!black}\bfseries,
 }
 
 % Geometry settings are typically handled by the document class (IEEEtran)
@@ -146,22 +166,20 @@ Key features of our implementation include:
 Hanami's syntax draws inspiration from multiple languages while introducing nature-themed keywords aligned with its name. For instance, "garden" replaces "namespace," "species" defines classes, and functions are declared using "grow." This design choice makes the language both distinctive and memorable while serving as a practical demonstration of syntax design principles.
 
 % Original table from introduction.tex - Note: table:keywords label reused below, adjusted this one.
+% --- MODIFIED TABLE I to use booktabs ---
 \begin{table}[tbp] % Placement suggestion: top, bottom, page
     \caption{Hanami Keyword Examples (Intro)}
     \label{table:keywords_intro}
     \centering
-    \begin{tabular}{|l|l|l|}
-        \hline
+    \begin{tabular}{@{}lll@{}} % Use @{} to remove padding at edges, and booktabs style
+        \toprule
         \textbf{Hanami} & \textbf{C++ Equivalent} & \textbf{Meaning} \\
-        \hline
+        \midrule
         garden $<$Name$>$ & namespace $<$Name$>$ & Declares a namespace \\
-        \hline
         species $<$Name$>$ & class $<$Name$>$ & Declares a class \\
-        \hline
         grow $<$Name$>$() -$>$ $<$type$>$ & $<$type$>$ $<$Name$>$() & Declares a function \\
-        \hline
         bloom $<<$ x; & std::cout $<<$ x; & Prints to console \\
-        \hline
+        \bottomrule
     \end{tabular}
 \end{table}
 
@@ -286,7 +304,7 @@ The language employs a consistent "garden" metaphor throughout:
     \label{table:syntaxes_ideas}
     \centering
     % Using booktabs for better table aesthetics
-    \begin{tabular}{@{}lll@{}} % Use @{} to remove padding at edges
+    \begin{tabular}{@{}ll@{}} % Use @{} to remove padding at edges. Reduced one l column as it was empty.
         \toprule
         \textbf{Hanami Construct} & \textbf{Metaphorical Meaning} \\
         \midrule
@@ -473,51 +491,56 @@ Each transformation preserves the semantic meaning of the program while changing
 \subsection{Compiler Pipeline Stages}
 \label{subsec:pipeline}
 
-The core pipeline consists of Lexical Analysis, Parsing, Semantic Analysis, and Code Generation.
+The core pipeline consists of Lexical Analysis, Parsing, Semantic Analysis, and Code Generation. Each stage performs a specific function in transforming Hanami source code into target languages.
 
-% Content from overview.tex - Section 2 (Compiler Pipeline Table)
-% Adjusted column widths for IEEEtran two-column format. May still need tweaking.
-% Using standard table* environment to span columns if needed, or adjust widths for single column.
-% Let's try keeping longtable but adjust widths significantly.
-\begin{center} % Center the longtable if it fits in one column
-\begin{longtable}{|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{1.8cm}|}
-\caption{Compiler Pipeline Stages} \label{table:pipeline} \\ % Add caption and label
-\hline
-\textbf{Stage} & \textbf{Implementation Highlights – What the Stage Does} & \textbf{Output} \\
-\hline
-\endfirsthead
-\hline
-\textbf{Stage} & \textbf{Implementation Highlights – What the Stage Does} & \textbf{Output} \\
-\hline
-\endhead
-\hline
-\endfoot
-\hline
-\endlastfoot
-Lexer – Lexical Analysis &
-• Reads character stream once, groups into tokens (names, numbers, strings, operators, Hanami keywords). \newline
-• Ignores comments; records line/column positions. \newline
-• Detects early errors (invalid chars, unclosed strings). &
-Token list w/ positions \\
-\hline
-Parser – Recursive-Descent Syntax Analysis &
-• Receives tokens, builds Abstract Syntax Tree (AST) representing program structure. \newline
-• Uses manual recursive functions, supports panic-mode recovery. &
-Serializable AST (JSON) \\
-\hline
-Semantic Analysis + IR &
-• Traverses AST, builds symbol tables, applies scoping/visibility, performs static type checks. \newline
-• Labels AST nodes with type/ID, emits language-neutral Intermediate Representation (JSON). &
-Rich-context IR (JSON) \\
-\hline
-Code Gen / Transpiler &
-• Consumes unified IR, generates C++, Java, Python, JavaScript via pluggable visitors. \newline
-• Ensures independent target generation. \newline
-• Retains original line numbers for error tracing. &
-Files: \texttt{.cpp}, \texttt{.java}, \texttt{.py}, \texttt{.js} \\
-\hline
-\end{longtable}
-\end{center}
+\begin{table}[H]
+	\caption{Compiler Pipeline Stages}
+	\label{table:pipeline}
+	\footnotesize % Even smaller than \small to ensure it fits
+	\begin{tabular}{|p{1.4cm}|p{4.8cm}|p{1.7cm}|}
+		\hline
+		\textbf{Stage} & \textbf{Implementation Highlights} & \textbf{Output} \\
+		\hline
+		Lexer -- Lexical Analysis & 
+		\begin{minipage}[t]{5cm}
+			\vspace{1mm}
+			• Reads character stream once, groups into tokens\\
+			• Ignores comments; records line/column positions\\
+			• Detects early errors (invalid chars, unclosed strings)
+			\vspace{1mm}
+		\end{minipage} &
+		Token list w/ positions \\
+		\hline
+		Parser -- Recursive-Descent Syntax Analysis & 
+		\begin{minipage}[t]{5cm}
+			\vspace{1mm}
+			• Receives tokens, builds Abstract Syntax Tree (AST)\\
+			• Uses manual recursive functions, supports recovery
+			\vspace{1mm}
+		\end{minipage} &
+		Serializable AST (JSON) \\
+		\hline
+		Semantic Analysis + IR & 
+		\begin{minipage}[t]{5cm}
+			\vspace{1mm}
+			• Traverses AST, builds symbol tables, type checks\\
+			• Labels AST nodes with type/ID, emits IR (JSON)
+			\vspace{1mm}
+		\end{minipage} &
+		Rich-context IR (JSON) \\
+		\hline
+		Code Gen / Transpiler & 
+		\begin{minipage}[t]{5cm}
+			\vspace{1mm}
+			• Generates C++, Java, Python, JavaScript\\
+			• Ensures independent target generation\\
+			• Retains line numbers for error tracing
+			\vspace{1mm}
+		\end{minipage} &
+		Files: \texttt{.cpp}, \texttt{.java}, \texttt{.py}, \texttt{.js} \\
+		\hline
+	\end{tabular}
+\end{table}
 
 \subsection{Lexer}
 The lexer converts the raw source code into a stream of tokens. This component is implemented in the \texttt{lexer/} directory.
@@ -530,11 +553,11 @@ The lexer converts the raw source code into a stream of tokens. This component i
 \end{itemize}
 
 \subsubsection{Lexer Algorithm}
-\begin{figure}[H]
+\begin{figure}[H] % Consider [htbp] if [H] causes issues
         \centering
-        \includegraphics[width=1\linewidth]{lexer_imp.png}
+        \includegraphics[width=1\linewidth]{lexer_imp.png} % Ensure image path is correct
         \caption{Lexer Implementation}
-        \label{fig:enter-label}
+        \label{fig:lexer_imp} % Changed label to be unique
     \end{figure}
 The lexer employs a deterministic finite automaton (DFA) approach:
 \begin{enumerate}
@@ -547,11 +570,11 @@ The lexer employs a deterministic finite automaton (DFA) approach:
 
 \subsection{Parser}
 The parser constructs an Abstract Syntax Tree (AST) from the token stream, enforcing the syntactic rules of the Hanami language. This component is implemented in the \texttt{parser/} directory.
-\begin{figure}[H]
+\begin{figure}[H] % Consider [htbp]
     \centering
-    \includegraphics[width=1\linewidth]{lexer_imp}
+    \includegraphics[width=1\linewidth]{lexer_imp} % Note: Filename is 'lexer_imp', is this correct or should it be parser_imp.png? Assuming it's a placeholder.
     \caption{Parser Implementation}
-    \label{fig:enter-label}
+    \label{fig:parser_imp} % Changed label
 \end{figure}
 \subsubsection{Parser Components}
 \begin{itemize}
@@ -576,11 +599,11 @@ The AST is structured as a hierarchical composition of nodes representing differ
 
 \subsection{Semantic Analyzer}
 The semantic analyzer verifies the semantic correctness of the program and enriches the AST with type and scope information. This component is implemented in the \texttt{semantic\_analyzer/} directory.
-\begin{figure}[H]
+\begin{figure}[H] % Consider [htbp]
         \centering
-        \includegraphics[width=1\linewidth]{seman_imp.png}
+        \includegraphics[width=1\linewidth]{seman_imp.png} % Ensure image path is correct
         \caption{Semantic Analyzer Implementation}
-        \label{fig:enter-label}
+        \label{fig:seman_imp} % Changed label
     \end{figure}
 \subsubsection{Semantic Analyzer Components}
 \begin{itemize}
@@ -613,11 +636,11 @@ The type system defines:
 
 \subsection{Code Generator}
 The code generator translates the semantically validated AST into target languages such as C++, Java, Python, or JavaScript. This component is implemented in the \texttt{codegen/} directory.
-\begin{figure}[H]
+\begin{figure}[H] % Consider [htbp]
     \centering
-    \includegraphics[width=1\linewidth]{codegen_flow.png}
+    \includegraphics[width=1\linewidth]{codegen_flow.png} % Ensure image path is correct
     \caption{Code Generation Workflow}
-    \label{fig:enter-label}
+    \label{fig:codegen_flow} % Changed label
 \end{figure}
 \subsubsection{Code Generator Components}
 \begin{itemize}
@@ -665,11 +688,11 @@ The build system orchestrates the compilation process, managing dependencies and
     \item \textbf{Dependency Tracking}: Determines which files need recompilation.
 \end{itemize}
 Common build targets might include `clean`, `build`, `test`, `install`, and `package`. Build configurations often support Debug, Release, cross-compilation, and feature toggles.
-\begin{figure}[H]
+\begin{figure}[H] % Consider [htbp]
     \centering
-    \includegraphics[width=1\linewidth]{buildsys.png}
+    \includegraphics[width=1\linewidth]{buildsys.png} % Ensure image path is correct
     \caption{Build System Overview}
-    \label{fig:enter-label}
+    \label{fig:buildsys} % Changed label
 \end{figure}
 
 \textbf{Cross-Platform Support}:
@@ -744,6 +767,215 @@ The architecture was designed with performance considerations, though extensive 
     \item \textbf{Memory Efficiency}: Use of appropriate data structures (e.g., AST, symbol tables).
     \item \textbf{Processing Time}: Algorithms chosen for reasonable performance (e.g., recursive descent parsing).
 \end{itemize}
+\subsubsection{Performance Results}
+
+To evaluate the performance of the Garden language, we conducted an analysis of the execution time for each module during the compilation of two sample programs. The tests were designed to measure how the compiler performs with different types of programs.
+
+\paragraph{Test Environment}
+The evaluations were performed in the following environment:
+\begin{itemize}
+	\item IDE: Visual Studio Code v1.99.3
+	\item CPU: Intel Core i7-11800H
+	\item Measurement method: Using C++ \texttt{chrono} library
+\end{itemize}
+
+\paragraph{Sample Programs}
+Two different programs were used for the evaluation:
+
+% --- MODIFIED: Changed verbatim to lstlisting for Program 1 ---
+\textbf{Program 1: Simple Calculator}
+\begin{lstlisting}[language=C++, caption={Sample Program 1: Simple Calculator (Hanami-like syntax)}, label={lst:perf_prog1}, basicstyle=\ttfamily\scriptsize, columns=flexible]
+style <iostream>
+
+garden SimpleProgram
+
+species SimpleCalculator {
+    open:
+    grow add(int a, int b) -> int {
+        blossom a + b;
+    }
+    
+    grow subtract(int a, int b) -> int {
+        blossom a - b;
+    }
+    
+    grow multiply(int a, int b) -> int {
+        blossom a * b;
+    }
+    
+    grow divide(int a, int b) -> int {
+        branch (b == 0) {
+            blossom 0;
+        }
+        blossom a / b;
+    }
+};
+
+grow mainGarden() -> int {
+    SimpleCalculator calc;
+    
+    // Print results directly instead of assigning to variables
+    bloom << "Addition: " << calc.add(5, 3) << "\n";
+    bloom << "Subtraction: " << calc.subtract(10, 4) << "\n";
+    bloom << "Multiplication: " << calc.multiply(6, 7) << "\n";
+    bloom << "Division: " << calc.divide(20, 5) << "\n";
+    
+    blossom 0;
+}
+\end{lstlisting}
+
+% --- MODIFIED: Changed verbatim to lstlisting for Program 2 ---
+\textbf{Program 2: Number Guessing Game}
+\begin{lstlisting}[language=C++, caption={Sample Program 2: Number Guessing Game (Hanami-like syntax)}, label={lst:perf_prog2}, basicstyle=\ttfamily\scriptsize, columns=flexible]
+style <iostream>
+style <string>
+
+garden Main
+
+grow mainGarden() -> int 
+{
+    std::string playerName;
+    int guess;
+    int secretNumber = 3;
+    bool isCorrect;
+    
+    bloom << "Chao mung den voi tro choi doan so bi mat!" << "\n";
+    bloom << "Vui long nhap ten cua ban: ";
+    
+    water >> playerName;
+    
+    bloom << "Xin chao, " << playerName << "!" << "\n";
+    bloom << "Hay doan mot so tu 1 den 5." << "\n";
+    bloom << "Nhap so ban doan: ";
+    
+    water >> guess;
+    
+    branch (guess < 1) 
+    {
+        bloom << "So ban nhap qua nho!" << "\n";
+        bloom << playerName << ", so phai tu 1 den 5." << "\n";
+        bloom << "Tro choi ket thuc." << "\n";
+        blossom 0;
+    }
+    
+    branch (guess > 5) 
+    {
+        bloom << "So ban nhap qua lon!" << "\n";
+        bloom << playerName << ", so phai tu 1 den 5." << "\n";
+        bloom << "Tro choi ket thuc." << "\n";
+        blossom 0;
+    }
+    
+    isCorrect = (guess == secretNumber);
+    
+    branch (isCorrect) 
+    {
+        bloom << "Chuc mung, " << playerName << "!" << "\n";
+        bloom << "Ban da doan dung so bi mat: " << secretNumber << "\n";
+        bloom << "Ban that xuat sac!" << "\n";
+    }
+    
+    branch (isCorrect == false) 
+    {
+        bloom << "Rat tiec, " << playerName << "!" << "\n";
+        bloom << "So ban doan khong dung." << "\n";
+        bloom << "So bi mat la: " << secretNumber << "\n";
+        bloom << "Hay thu lai lan sau nhe!" << "\n";
+    }
+    
+    bloom << "Cam on ban da tham gia tro choi!" << "\n";
+    
+    blossom 0;
+}
+\end{lstlisting}
+
+% Create a section specifically for performance results with clear separation
+\paragraph{Compilation Performance Results.}
+The tables below present the execution time (in seconds) for each module during compilation of both programs:
+
+% First table - made more compact to fit in two-column format
+\begin{table}[H]
+	\centering
+	\caption{Execution times (seconds) for Simple Calculator program}
+	\label{tab:performance_results_prog1}
+	\scriptsize % Even smaller than footnotesize
+	\setlength{\tabcolsep}{3pt} % Very compact columns
+	\begin{tabular}{@{}llllll@{}}
+		\toprule
+		\textbf{Run} & \textbf{Lexer} & \textbf{Parser} & \textbf{Sem. Anal.} & \textbf{Code Gen.} & \textbf{Total} \\
+		\midrule
+		1 & 0.300513 & 0.196235 & 0.002480 & 0.005205 & 0.504433 \\
+		2 & 0.269355 & 0.193547 & 0.001894 & 0.004807 & 0.469603 \\
+		3 & 0.267332 & 0.243762 & 0.001938 & 0.005553 & 0.518585 \\
+		4 & 0.339088 & 0.197705 & 0.001844 & 0.004578 & 0.543215 \\
+		5 & 0.268074 & 0.215145 & 0.001955 & 0.015425 & 0.500599 \\
+		\midrule
+		\textbf{Avg} & \textbf{0.289} & \textbf{0.209} & \textbf{0.002} & \textbf{0.007} & \textbf{0.507} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+% Second table - made more compact to fit in two-column format
+\begin{table}[H]
+	\centering
+	\caption{Execution times (seconds) for Number Guessing Game program}
+	\label{tab:performance_results_prog2}
+	\scriptsize % Even smaller than footnotesize
+	\setlength{\tabcolsep}{3pt} % Very compact columns
+	\begin{tabular}{@{}llllll@{}}
+		\toprule
+		\textbf{Run} & \textbf{Lexer} & \textbf{Parser} & \textbf{Sem. Anal.} & \textbf{Code Gen.} & \textbf{Total} \\
+		\midrule
+		1 & 0.391050 & 0.310980 & 0.002120 & 0.005749 & 0.709899 \\
+		2 & 0.423220 & 0.334670 & 0.002670 & 0.197931 & 0.958491 \\
+		3 & 0.425052 & 0.335004 & 0.002520 & 0.006645 & 0.769221 \\
+		4 & 0.410657 & 0.323180 & 0.002525 & 0.010270 & 0.746632 \\
+		5 & 0.446285 & 0.292156 & 0.002157 & 0.006017 & 0.746615 \\
+		\midrule
+		\textbf{Avg} & \textbf{0.419} & \textbf{0.319} & \textbf{0.002} & \textbf{0.045} & \textbf{0.786} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+% Make sure to have these packages in your preamble:
+% \usepackage{float}     % For [H] placement
+% \usepackage{booktabs}  % For table formatting
+
+
+
+
+% --- ADDED \FloatBarrier before subsequent paragraphs to ensure tables are placed ---
+\FloatBarrier 
+\paragraph{Comparative Analysis}
+Comparing the performance metrics between the two programs:
+
+\begin{itemize}
+	\item \textbf{Overall Performance}: Program 2 (Number Guessing Game) took approximately 55\% longer to compile than Program 1 (Simple Calculator), with average total times of 0.786s vs. 0.507s.
+	
+	\item \textbf{Lexer}: The lexical analysis for Program 2 took 45\% longer (0.419s vs. 0.289s), which correlates with its larger size and more complex structure.
+	
+	\item \textbf{Parser}: The parsing phase for Program 2 required about 53\% more time (0.319s vs. 0.209s), reflecting the increased complexity of the control flow with multiple branch statements.
+	
+	\item \textbf{Semantic Analyzer}: The semantic analysis showed only a minimal increase (0.0024s vs. 0.0020s), suggesting that this phase scales well with program complexity.
+	
+	\item \textbf{Code Generator}: The most significant difference was in the code generation phase, where Program 2 required approximately 6.4 times longer (0.045s vs. 0.007s). This is largely due to the second run's anomalous value of 0.198s, which may indicate occasional optimization challenges or resource contention.
+\end{itemize}
+
+\paragraph{Conclusions}
+The performance analysis reveals that:
+
+\begin{itemize}
+	\item The Lexer and Parser continue to be the most time-consuming phases of the compilation process for both programs, accounting for over 90\% of the total time.
+	
+	\item The compilation time increases with program complexity and size, but not linearly across all phases.
+	
+	\item The Semantic Analyzer demonstrates excellent scalability, with minimal performance impact as program complexity increases.
+	
+	\item The Code Generator shows more variability in performance, suggesting it may benefit from further optimization to handle more complex programs consistently.
+	
+	\item For both programs, the total compilation time remains under one second, which is acceptable for development purposes, though further optimizations could improve the developer experience for larger codebases.
+\end{itemize}
+
 
 \subsection{Scalability Aspects}
 The architecture supports language and compiler evolution:
@@ -781,14 +1013,16 @@ The current version of Hanami lacks support for several essential data structure
 \item \textbf{No support for collections} - Limited ability to process sets and relational data
 \end{itemize}
 A desired implementation would include:
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Desired array implementation example}, label={lst:desired_array_impl}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 // Array declaration
 int numbers[5];
 int initialized[] = {1, 2, 3, 4, 5};
 // Array access
 numbers[0] = 10;
 bloom << numbers[2];
-\end{verbatim}
+\end{lstlisting}
+
 \subsubsection{Limitations in String Handling}
 Hanami lacks comprehensive string manipulation features:
 \begin{itemize}
@@ -799,18 +1033,19 @@ Hanami lacks comprehensive string manipulation features:
 \subsubsection{Limited Control Structures}
 \paragraph{Switch/Case Statements}
 Hanami currently lacks a switch/case construct, which is essential for multi-path branching logic:
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Desired switch/case example}, label={lst:desired_switch_case}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 switch (value) {
 case 1:
-bloom << "One";
-break;
+    bloom << "One";
+    break;
 case 2:
-bloom << "Two";
-break;
+    bloom << "Two";
+    break;
 default:
-bloom << "Other";
+    bloom << "Other";
 }
-\end{verbatim}
+\end{lstlisting}
 \paragraph{Advanced Flow Control}
 The language lacks several modern flow control constructs:
 \begin{itemize}
@@ -847,14 +1082,15 @@ To address the current lack of fundamental data structures, we will implement:
 \item \textbf{Advanced data structure operations} including slicing, filtering, and mapping
 \end{itemize}
 Example of planned array implementation:
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Planned array implementation example}, label={lst:planned_array_impl}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 // Flexible array declaration and initialization
 arr[int] numbers = [1, 2, 3, 4, 5];
 arr[string] names = ["Alice", "Bob", "Charlie"];
 // Advanced operations
 numbers[1..3] = [10, 20];  // Slice assignment
 var doubled = numbers.map(n => n * 2);  // Transformation
-\end{verbatim}
+\end{lstlisting}
 \paragraph{String Handling Enhancement}
 We will implement advanced string handling capabilities:
 \begin{itemize}
@@ -863,45 +1099,48 @@ We will implement advanced string handling capabilities:
 \item \textbf{Extensive string manipulation functions} for common operations
 \end{itemize}
 Example of planned string features:
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Planned string features example}, label={lst:planned_string_features}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 // String interpolation
 var name = "World";
 var greeting = "Hello ${name}!";  // "Hello World!"
 // Regular expressions
 var isEmail = "user@example.com" ~= /^[\w.]+@[\w.]+.\w+$/;
-\end{verbatim}
+\end{lstlisting}
 \subsubsection{Control Structure Enhancements}
 \paragraph{Pattern Matching}
 We will implement a powerful pattern matching system that goes beyond traditional switch/case:
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Planned pattern matching example}, label={lst:planned_pattern_matching}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 match (value) {
 case int n if n > 0 => bloom << "Positive number: ${n}";
 case int n if n < 0 => bloom << "Negative number: ${n}";
 case string s => bloom << "String: ${s}";
 case Person(name: var n, age: var a) =>
-bloom << "Person ${n}, age ${a}";
+    bloom << "Person ${n}, age ${a}";
 case [var head, *var tail] =>
-bloom << "List with head ${head}";
+    bloom << "List with head ${head}";
 case _ => bloom << "Default case";
 }
-\end{verbatim}
+\end{lstlisting}
 \paragraph{Exception Handling}
 A robust exception handling system will be implemented:
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Planned exception handling example}, label={lst:planned_exception_handling}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 try {
-// Code that might throw exceptions
-var result = riskyOperation();
+    // Code that might throw exceptions
+    var result = riskyOperation();
 } catch (FileNotFound e) {
-// Handle specific exception
-bloom << "File not found: ${e.message}";
+    // Handle specific exception
+    bloom << "File not found: ${e.message}";
 } catch (e: NetworkError | TimeoutError) {
-// Handle multiple exception types
-bloom << "Connection issue: ${e.message}";
+    // Handle multiple exception types
+    bloom << "Connection issue: ${e.message}";
 } finally {
-// Always executed
-cleanup();
+    // Always executed
+    cleanup();
 }
-\end{verbatim}
+\end{lstlisting}
 \subsubsection{Unique Features and Advantages}
 \paragraph{Bidirectional Type Inference}
 Unlike many languages with limited type inference, Hanami will feature bidirectional type inference that provides both safety and conciseness:
@@ -910,17 +1149,18 @@ Unlike many languages with limited type inference, Hanami will feature bidirecti
 \item \textbf{Partial type annotations} allowing developers to specify only critical types
 \item \textbf{Flow-sensitive typing} that understands type changes through control flow
 \end{itemize}
-\begin{verbatim}
+% --- MODIFIED: Changed verbatim to lstlisting ---
+\begin{lstlisting}[language=C++, caption={Planned type inference example}, label={lst:planned_type_inference}, basicstyle=\ttfamily\scriptsize, columns=flexible]
 // Type inferred from initialization
 var x = 5;  // inferred as int
 var y = "hello";  // inferred as string
 // Flow-sensitive typing
 var z = getValueFromNetwork();
 if (z is int) {
-// z is treated as int in this scope
-bloom << z + 10;
+    // z is treated as int in this scope
+    bloom << z + 10;
 }
-\end{verbatim}
+\end{lstlisting}
 \subsubsection{Context-Aware Compilation}
 Hanami will introduce a revolutionary context-aware compilation system:
 \begin{itemize}
