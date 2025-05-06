@@ -19,6 +19,8 @@
 \usepackage{placeins} % Added for \FloatBarrier
 \usepackage{float}
 \usepackage{pdfpages}
+\usepackage{ltxtable}
+\usepackage{ltablex}
 
 % Additional necessary packages from other files
 \usepackage{longtable} % From overview.tex
@@ -479,7 +481,8 @@ The core pipeline consists of Lexical Analysis, Parsing, Semantic Analysis, and 
 % Adjusted column widths for IEEEtran two-column format. May still need tweaking.
 % Using standard table* environment to span columns if needed, or adjust widths for single column.
 % Let's try keeping longtable but adjust widths significantly.
-\begin{center} % Center the longtable if it fits in one column
+%\begin{center} % Center the longtable if it fits in one column
+\onecolumn
 \begin{longtable}{|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{1.8cm}|}
 \caption{Compiler Pipeline Stages} \label{table:pipeline} \\ % Add caption and label
 \hline
@@ -517,7 +520,8 @@ Code Gen / Transpiler &
 Files: \texttt{.cpp}, \texttt{.java}, \texttt{.py}, \texttt{.js} \\
 \hline
 \end{longtable}
-\end{center}
+%\end{center}
+\twocolumn
 
 \subsection{Lexer}
 The lexer converts the raw source code into a stream of tokens. This component is implemented in the \texttt{lexer/} directory.
@@ -744,6 +748,207 @@ The architecture was designed with performance considerations, though extensive 
     \item \textbf{Memory Efficiency}: Use of appropriate data structures (e.g., AST, symbol tables).
     \item \textbf{Processing Time}: Algorithms chosen for reasonable performance (e.g., recursive descent parsing).
 \end{itemize}
+\subsubsection{Performance Results}
+
+To evaluate the performance of the Garden language, we conducted an analysis of the execution time for each module during the compilation of two sample programs. The tests were designed to measure how the compiler performs with different types of programs.
+
+\paragraph{Test Environment}
+The evaluations were performed in the following environment:
+\begin{itemize}
+	\item IDE: Visual Studio Code v1.99.3
+	\item CPU: Intel Core i7-11800H
+	\item Measurement method: Using C++ \texttt{chrono} library
+\end{itemize}
+
+\paragraph{Sample Programs}
+Two different programs were used for the evaluation:
+
+\textbf{Program 1: Simple Calculator}
+\begin{verbatim}
+	style <iostream>
+	
+	garden SimpleProgram
+	
+	species SimpleCalculator {
+		open:
+		grow add(int a, int b) -> int {
+			blossom a + b;
+		}
+		
+		grow subtract(int a, int b) -> int {
+			blossom a - b;
+		}
+		
+		grow multiply(int a, int b) -> int {
+			blossom a * b;
+		}
+		
+		grow divide(int a, int b) -> int {
+			branch (b == 0) {
+				blossom 0;
+			}
+			blossom a / b;
+		}
+	};
+	
+	grow mainGarden() -> int {
+		SimpleCalculator calc;
+		
+		// Print results directly instead of assigning to variables
+		bloom << "Addition: " << calc.add(5, 3) << "\n";
+		bloom << "Subtraction: " << calc.subtract(10, 4) << "\n";
+		bloom << "Multiplication: " << calc.multiply(6, 7) << "\n";
+		bloom << "Division: " << calc.divide(20, 5) << "\n";
+		
+		blossom 0;
+	}
+\end{verbatim}
+
+\textbf{Program 2: Number Guessing Game}
+\begin{verbatim}
+	style <iostream>
+	style <string>
+	
+	garden Main
+	
+	grow mainGarden() -> int 
+	{
+		std::string playerName;
+		int guess;
+		int secretNumber = 3;
+		bool isCorrect;
+		
+		bloom << "Chao mung den voi tro choi doan so bi mat!" << "\n";
+		bloom << "Vui long nhap ten cua ban: ";
+		
+		water >> playerName;
+		
+		bloom << "Xin chao, " << playerName << "!" << "\n";
+		bloom << "Hay doan mot so tu 1 den 5." << "\n";
+		bloom << "Nhap so ban doan: ";
+		
+		water >> guess;
+		
+		branch (guess < 1) 
+		{
+			bloom << "So ban nhap qua nho!" << "\n";
+			bloom << playerName << ", so phai tu 1 den 5." << "\n";
+			bloom << "Tro choi ket thuc." << "\n";
+			blossom 0;
+		}
+		
+		branch (guess > 5) 
+		{
+			bloom << "So ban nhap qua lon!" << "\n";
+			bloom << playerName << ", so phai tu 1 den 5." << "\n";
+			bloom << "Tro choi ket thuc." << "\n";
+			blossom 0;
+		}
+		
+		isCorrect = (guess == secretNumber);
+		
+		branch (isCorrect) 
+		{
+			bloom << "Chuc mung, " << playerName << "!" << "\n";
+			bloom << "Ban da doan dung so bi mat: " << secretNumber << "\n";
+			bloom << "Ban that xuat sac!" << "\n";
+		}
+		
+		branch (isCorrect == false) 
+		{
+			bloom << "Rat tiec, " << playerName << "!" << "\n";
+			bloom << "So ban doan khong dung." << "\n";
+			bloom << "So bi mat la: " << secretNumber << "\n";
+			bloom << "Hay thu lai lan sau nhe!" << "\n";
+		}
+		
+		bloom << "Cam on ban da tham gia tro choi!" << "\n";
+		
+		blossom 0;
+	}
+\end{verbatim}
+
+\paragraph{Compilation Performance Results}
+The tables below present the execution time (in seconds) for each module during compilation of both programs:
+
+\textbf{Program 1: Simple Calculator}
+\begin{table}[h]
+	\centering
+	\begin{tabular}{|c|c|c|c|c|c|}
+		\hline
+		\textbf{Run} & \textbf{Lexer} & \textbf{Parser} & \textbf{Semantic Analyzer} & \textbf{Code Generator} & \textbf{Total} \\
+		\hline
+		1 & 0.300513 & 0.196235 & 0.00248 & 0.005205 & 0.504433 \\
+		\hline
+		2 & 0.269355 & 0.193547 & 0.001894 & 0.004807 & 0.469603 \\
+		\hline
+		3 & 0.267332 & 0.243762 & 0.001938 & 0.005553 & 0.518585 \\
+		\hline
+		4 & 0.339088 & 0.197705 & 0.001844 & 0.004578 & 0.543215 \\
+		\hline
+		5 & 0.268074 & 0.215145 & 0.001955 & 0.015425 & 0.500599 \\
+		\hline
+		\textbf{Average} & 0.288872 & 0.209279 & 0.002022 & 0.007114 & 0.507287 \\
+		\hline
+	\end{tabular}
+	\caption{Execution times (seconds) for Simple Calculator program}
+	\label{tab:performance_results_prog1}
+\end{table}
+
+\textbf{Program 2: Number Guessing Game}
+\begin{table}[h]
+	\centering
+	\begin{tabular}{|c|c|c|c|c|c|}
+		\hline
+		\textbf{Run} & \textbf{Lexer} & \textbf{Parser} & \textbf{Semantic Analyzer} & \textbf{Code Generator} & \textbf{Total} \\
+		\hline
+		1 & 0.39105 & 0.31098 & 0.00212 & 0.005749 & 0.709899 \\
+		\hline
+		2 & 0.42322 & 0.33467 & 0.00267 & 0.197931 & 0.958491 \\
+		\hline
+		3 & 0.425052 & 0.335004 & 0.00252 & 0.006645 & 0.769221 \\
+		\hline
+		4 & 0.410657 & 0.32318 & 0.002525 & 0.01027 & 0.746632 \\
+		\hline
+		5 & 0.446285 & 0.292156 & 0.002157 & 0.006017 & 0.746615 \\
+		\hline
+		\textbf{Average} & 0.419253 & 0.319198 & 0.002398 & 0.045322 & 0.786172 \\
+		\hline
+	\end{tabular}
+	\caption{Execution times (seconds) for Number Guessing Game program}
+	\label{tab:performance_results_prog2}
+\end{table}
+
+\paragraph{Comparative Analysis}
+Comparing the performance metrics between the two programs:
+
+\begin{itemize}
+	\item \textbf{Overall Performance}: Program 2 (Number Guessing Game) took approximately 55\% longer to compile than Program 1 (Simple Calculator), with average total times of 0.786s vs. 0.507s.
+	
+	\item \textbf{Lexer}: The lexical analysis for Program 2 took 45\% longer (0.419s vs. 0.289s), which correlates with its larger size and more complex structure.
+	
+	\item \textbf{Parser}: The parsing phase for Program 2 required about 53\% more time (0.319s vs. 0.209s), reflecting the increased complexity of the control flow with multiple branch statements.
+	
+	\item \textbf{Semantic Analyzer}: The semantic analysis showed only a minimal increase (0.0024s vs. 0.0020s), suggesting that this phase scales well with program complexity.
+	
+	\item \textbf{Code Generator}: The most significant difference was in the code generation phase, where Program 2 required approximately 6.4 times longer (0.045s vs. 0.007s). This is largely due to the second run's anomalous value of 0.198s, which may indicate occasional optimization challenges or resource contention.
+\end{itemize}
+
+\paragraph{Conclusions}
+The performance analysis reveals that:
+
+\begin{itemize}
+	\item The Lexer and Parser continue to be the most time-consuming phases of the compilation process for both programs, accounting for over 90\% of the total time.
+	
+	\item The compilation time increases with program complexity and size, but not linearly across all phases.
+	
+	\item The Semantic Analyzer demonstrates excellent scalability, with minimal performance impact as program complexity increases.
+	
+	\item The Code Generator shows more variability in performance, suggesting it may benefit from further optimization to handle more complex programs consistently.
+	
+	\item For both programs, the total compilation time remains under one second, which is acceptable for development purposes, though further optimizations could improve the developer experience for larger codebases.
+\end{itemize}
+
 
 \subsection{Scalability Aspects}
 The architecture supports language and compiler evolution:
