@@ -1,0 +1,146 @@
+\documentclass[11pt]{article}
+
+% Packages with proper options for coloring tables
+\usepackage[landscape,margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[table]{xcolor} % Add 'table' option to xcolor
+\usepackage{colortbl} % Explicitly include colortbl
+
+% Define custom colors with stronger intensity for better visibility
+\definecolor{week1color}{RGB}{204,229,255} % Light blue
+\definecolor{week2color}{RGB}{204,255,204} % Light green  
+\definecolor{week3color}{RGB}{255,229,204} % Light orange
+\definecolor{week4color}{RGB}{229,204,255} % Light purple
+
+\begin{document}
+
+\begin{center}
+\Large{\textbf{Hanami Programming Language Project - Team Contribution Table}}
+\end{center}
+
+% Define column specification with vertical lines
+\begin{longtable}{|p{0.05\textwidth}|p{0.05\textwidth}|p{0.08\textwidth}|p{0.19\textwidth}|p{0.33\textwidth}|p{0.13\textwidth}|p{0.17\textwidth}|}
+
+% Table header
+\hline
+\rowcolor{gray!20} % Header row with gray background
+\textbf{Sprint} & \textbf{Week} & \textbf{Member} & \textbf{Task} & \textbf{Description} & \textbf{Deadline} & \textbf{Deliverable} \\
+\hline
+
+\endfirsthead
+
+% Header for continued pages
+\multicolumn{7}{c}{\tablename\ \thetable{} -- Continued from previous page} \\
+\hline
+\rowcolor{gray!20}
+\textbf{Sprint} & \textbf{Week} & \textbf{Member} & \textbf{Task} & \textbf{Description} & \textbf{Deadline} & \textbf{Deliverable} \\
+\hline
+\endhead
+
+% Footer for continued pages
+\hline \multicolumn{7}{r}{Continued on next page} \\
+\endfoot
+
+% Footer for last page
+\hline
+\endlastfoot
+
+% Sprint 1 - Using defined color
+\arrayrulecolor{black}
+\rowcolor{week1color} 
+1 & 1 & Dat & Compiler Basics Documentation & Create a simplified Markdown document explaining core compiler stages & Mar 8, 2025 & Document explaining compiler pipeline \\
+\rowcolor{week1color} 
+& 1& An & Visual Pipeline Diagram & Create diagram illustrating journey from source code to executable & Mar 8, 2025 & Diagram highlighting key compiler phases \\
+\rowcolor{week1color} 
+& 2 & Duong & Simple Lexer Exercise & Implement basic C++ program tokenizing simple arithmetic expression & Mar 15, 2025 & Working tokenizer for arithmetic expressions \\
+\rowcolor{week1color} 
+& 2& Trung & Design Overview & Write overview discussing differences between compiled and interpreted languages & Mar 15, 2025 & Document on language design impact \\
+\rowcolor{week1color} 
+& 2& Trung & Meetings Organization & Organize meetings to discuss basic compiler concepts & Weeks 1-2 & Coordinated team discussions \\
+\rowcolor{week1color} 
+& 2& Trung & Week Review \& Feedback & Collect feedback, compile brief review of learning & Mar 15, 2025 & Review summary with planning adjustments \\
+\hline
+
+% Sprint 2 - Using defined color
+\rowcolor{week2color} 
+2 & 2 & Dat & Lexer Enhancements (Initial) & Begin developing C++ based lexer with additional tokens & Mar 22, 2025 & Initial lexer implementation \\
+\rowcolor{week2color} 
+& 2 & An & Parser Framework & Develop basic parser framework & Mar 22, 2025 & Initial parser structure \\
+\rowcolor{week2color} 
+& 2 & Duong & Semantic Analyzer Module & Implement C++ semantic analysis module for type checking, symbol tables, IR generation & Mar 29, 2025 & Semantic analyzer enriching AST with context \\
+\rowcolor{week2color} 
+&2 & Trung & Code Generation Module & Create module converting IR into C++ code for transpiling & Mar 29, 2025 & Working transpiler producing C++ code \\
+\rowcolor{week2color} 
+&2 & Trung & Integration \& Error Reporting & Integrate code generation with other components & Mar 29, 2025 & Seamless module with clear error reporting \\
+\hline
+%sprint 3
+\rowcolor{week3color} 
+3 & 2 & Trung & Module Integration (Initial) & Begin linking of compiler modules, define intermediate formats & Apr 18, 2025 & Initial integration framework \\
+\rowcolor{week3color} 
+& 1& Trung & Report Structure & Finalize report structure & Apr 18, 2025 & Report outline document \\
+\rowcolor{week3color} 
+& 2& Dat & Module Debugging (Initial) & Begin debugging efforts based on initial tests & Apr 18, 2025 & First round bug fixes \\
+\rowcolor{week3color} 
+& 2 & Trung & Integration Continued & Continue integration efforts, focus on resolving issues & Apr 25, 2025 & Partially integrated pipeline \\
+\rowcolor{week3color} 
+& 2& Dat & Module Debugging \& Extension & Continue debugging efforts and extend modules & Apr 25, 2025 & More robust compiler modules \\
+\rowcolor{week3color} 
+& 2& An & Unit Testing (Lexer \& Parser) & Develop/execute min 5 tests each for Lexer and Parser & Apr 25, 2025 & Verified Lexer and Parser modules \\
+\rowcolor{week3color} 
+& 2& Duong & Unit Testing (Semantic Analyzer \& Code Gen) & Develop/execute min 5 tests each & Apr 25, 2025 & Verified semantic/code gen modules \\
+\rowcolor{week3color} 
+& 2 & Trung & VS Code Extension - Phase 1 & Initiate VS Code extension project with basic syntax highlighting & Apr 26, 2025 & Basic VS Code extension \\
+\rowcolor{week3color} 
+& 2& Dat & AST -$>$ IR Refinement & Implement changes for improved IR & Apr 26, 2025 & Distinct IR representation \\
+\rowcolor{week3color} 
+& 2& Dat & Documentation: Introduction & Draft Introduction and Related Work sections & Apr 26, 2025 & Comprehensive introduction draft \\
+\rowcolor{week3color} 
+&2 & An & Documentation: Overview & Draft Overview section using Hanami Syntaxes.docx & Apr 26, 2025 & Clear language overview draft \\
+\rowcolor{week3color} 
+& 2& An & Visualization: Sequence Diagram & Create Sequence Diagram for key scenario & Apr 26, 2025 & Visual explanation of component interaction \\
+\rowcolor{week3color} 
+& 2& Duong & Documentation: System Architecture & Draft System Architecture section & Apr 26, 2025 & Detailed internal design draft \\
+\rowcolor{week3color} 
+& 2& Duong & Visualization: UML Class Diagram & Create UML Class Diagram for key data structures & Apr 26, 2025 & Visual representation of data structures \\
+\hline
+
+% Sprint 4 - Using defined color
+\rowcolor{week4color} 
+4 & 1 & Trung & Code Implementation Finishing Touches & Finalize core language features; perform code cleanup & May 3, 2025 & Stable, feature-complete codebase \\
+\rowcolor{week4color} 
+& 1& Dat & VS Code Extension - Phase 2 & Implement enhancements (error highlighting, improved snippets) & May 3, 2025 & Improved VS Code extension \\
+\rowcolor{week4color} 
+& 1& An & Language Design Details & Draft detailed language design section & May 3, 2025 & Comprehensive language design draft \\
+\rowcolor{week4color} 
+& 2& Duong & Limitations and Future Work & Draft limitations and future work section & May 3, 2025 & Draft of limitations/future work \\
+\rowcolor{week4color} 
+& 1& Duong & Code Examples for Report & Prepare 1-2 clear code examples demonstrating features & May 3, 2025 & Polished code examples \\
+\rowcolor{week4color} 
+& 2 & Trung & Abstract \& Conclusion & Draft abstract and conclusion sections & May 10, 2025 & Complete abstract and conclusion \\
+\rowcolor{week4color} 
+& 2& Trung & Development Methodology & Briefly describe agile/sprint-based approach & May 10, 2025 & Development methodology section \\
+\rowcolor{week4color} 
+& 2& Trung & Final Report Assembly & Consolidate all sections, ensure consistency, proofread & May 10, 2025 & Complete, polished final report \\
+\rowcolor{week4color} 
+& 2& Dat & Introduction \& Related Work Finalization & Refine and finalize these sections & May 10, 2025 & Finalized introduction and related work \\
+\rowcolor{week4color} 
+& 2& Dat & Evaluation \& Discussion & Draft evaluation and discussion sections & May 10, 2025 & Complete evaluation and discussion \\
+\rowcolor{week4color} 
+& 2& Dat & Code Comments \& Readability & Review core compiler logic modules, improve comments & May 10, 2025 & Improved code clarity \\
+\rowcolor{week4color} 
+& 2& An & Overview Finalization & Refine and finalize language overview section & May 10, 2025 & Finalized overview section \\
+\rowcolor{week4color} 
+& 2& An & References & Compile and format references list & May 10, 2025 & Complete references section \\
+\rowcolor{week4color} 
+& 2& An & Diagram Review (Sequence) & Review sequence diagram for accuracy and integration & May 10, 2025 & Reviewed sequence diagram \\
+\rowcolor{week4color} 
+& 2& Duong & System Architecture Finalization & Refine and finalize system architecture section & May 10, 2025 & Finalized system architecture \\
+\rowcolor{week4color} 
+& 2& Duong & Diagram Review (UML) & Review UML class diagram for accuracy and integration & May 10, 2025 & Reviewed UML class diagram \\
+\hline
+
+\end{longtable}
+
+\end{document}
