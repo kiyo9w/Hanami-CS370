@@ -1,0 +1,16 @@
+[build]
+  base = "development/frontend"
+  publish = "development/frontend/.next"
+  command = "npm run build"
+
+[build.environment]
+  NEXT_PUBLIC_API_URL = "https://hanami-backend-production.up.railway.app/api"
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs" 
