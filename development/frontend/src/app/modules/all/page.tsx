@@ -1,33 +1,43 @@
 'use client'
 
-import ModuleLayout from '@/components/ModuleLayout'
-import { runFullCompiler } from '@/lib/api'
-
-// Sample Hanami code for demo
-const sampleCode = `
-function main() {
-  var x = 10;
-  var y = 20;
-  
-  print("Hello, Hanami!");
-  
-  if (x < y) {
-    print("x is less than y");
-  }
-  
-  return 0;
-}
-`;
+import { useState } from 'react'
+import ModuleLayout from '@/components/ModuleLayout';
+import { executeModule } from '@/lib/api';
+import { useEditor } from '@/lib/EditorContext';
 
 export default function AllModulesPage() {
+  const [code, setCode] = useState<string>('garden Example {\n  grow main() -> int {\n    bloom << "Hello, Hanami!";\n    blossom 0;\n  }\n}');
+  const [output, setOutput] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const { editorValue } = useEditor();
+
+  const handleRunModule = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await executeModule('all', editorValue);
+      setOutput(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <ModuleLayout
+    <ModuleLayout 
       title="Full Compilation Pipeline"
-      description="Run the complete Hanami compiler pipeline: Lexical Analysis → Parsing → Semantic Analysis → Code Generation. This will process your Hanami code through all stages and generate the final output."
-      defaultInput={sampleCode}
-      runModule={runFullCompiler}
-      outputLanguage="javascript"
+      description="Run the full Hanami compiler pipeline: lexer, parser, semantic analyzer, and code generator"
+      code={code}
+      setCode={setCode}
+      output={output}
+      isLoading={isLoading}
+      error={error}
+      onRun={handleRunModule}
       outputTitle="Generated Code"
+      useMultiCodeOutput={true}
     />
-  )
+  );
 } 

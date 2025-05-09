@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import ModuleLayout from '@/components/ModuleLayout'
-import { runSemanticAnalyzer } from '@/lib/api'
+import ModuleLayout from '@/components/ModuleLayout';
+import { executeModule } from '@/lib/api';
+import { useEditor } from '@/lib/EditorContext';
 
 // Sample AST for semantic analysis (output from parser)
 const sampleAst = `{
@@ -59,27 +60,44 @@ const sampleAst = `{
 }`;
 
 export default function SemanticAnalyzerPage() {
-  const [inputIsAst, setInputIsAst] = useState(true);
-  
-  const handleRunSemanticAnalyzer = async (input: string) => {
-    return runSemanticAnalyzer(input, inputIsAst);
+  const [code, setCode] = useState<string>('garden Example {\n  grow main() -> int {\n    bloom << "Hello, Hanami!";\n    blossom 0;\n  }\n}');
+  const [output, setOutput] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inputFormat, setInputFormat] = useState<'source' | 'ast'>('source');
+  const { editorValue } = useEditor();
+
+  const handleRunModule = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await executeModule('semantic', editorValue, inputFormat);
+      setOutput(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
+
   return (
-    <ModuleLayout
+    <ModuleLayout 
       title="Semantic Analyzer"
-      description="The semantic analyzer examines the AST from the parser to check for semantic errors, build symbol tables, and perform type checking. You can provide either source code (which will go through lexing and parsing first) or an AST directly."
-      defaultInput={sampleAst}
-      runModule={handleRunSemanticAnalyzer}
-      outputLanguage="json"
-      outputTitle="Semantic Analysis Results"
-      inputOptions={{
-        showToggle: true,
-        toggleLabel: "Input is AST",
-        isToggled: inputIsAst,
-        onToggleChange: setInputIsAst,
-        toggleHelp: "When enabled, input is treated as an AST. When disabled, input is treated as source code and will go through lexing and parsing first."
-      }}
+      description="The semantic analyzer checks the AST for semantic correctness, ensuring variables are declared before use, type checking, and other semantic rules."
+      code={code}
+      setCode={setCode}
+      output={output}
+      isLoading={isLoading}
+      error={error}
+      onRun={handleRunModule}
+      outputTitle="Semantic Analysis Result"
+      inputFormatOptions={[
+        { value: 'source', label: 'Source Code' },
+        { value: 'ast', label: 'AST' }
+      ]}
+      inputFormat={inputFormat}
+      onInputFormatChange={setInputFormat}
     />
-  )
+  );
 } 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 
@@ -29,6 +29,9 @@ function isValidLanguageOutputs(obj: any): boolean {
 export default function MultiCodeOutput({ output, title = 'Generated Code' }: MultiCodeOutputProps) {
   const [activeTab, setActiveTab] = useState<string>('java')
   const [copied, setCopied] = useState(false)
+  
+  // Safe client-side navigator check
+  const isClient = typeof window !== 'undefined'
 
   // Parse the output string (JSON) to an object
   let outputFiles: Record<string, string> = {}
@@ -51,7 +54,7 @@ export default function MultiCodeOutput({ output, title = 'Generated Code' }: Mu
           }
         } else {
           parseError = "Invalid language outputs format";
-          console.error(parseError, parsed);
+          if (isClient) console.error(parseError, parsed);
           outputFiles = { error: `The output doesn't contain valid language outputs: ${JSON.stringify(parsed)}` };
           availableTabs = ['error'];
         }
@@ -63,12 +66,14 @@ export default function MultiCodeOutput({ output, title = 'Generated Code' }: Mu
     }
   } catch (error) {
     parseError = `Error parsing output: ${error instanceof Error ? error.message : String(error)}`;
-    console.error(parseError, output);
+    if (isClient) console.error(parseError, output);
     outputFiles = { error: parseError };
     availableTabs = ['error'];
   }
 
   const handleCopy = () => {
+    if (!isClient) return;
+    
     const content = outputFiles[activeTab] || '';
     navigator.clipboard.writeText(content);
     setCopied(true);
@@ -136,12 +141,14 @@ export default function MultiCodeOutput({ output, title = 'Generated Code' }: Mu
             </button>
           ))}
           <div className="flex-grow"></div>
-          <button
-            onClick={handleCopy}
-            className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors my-2"
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
+          {isClient && (
+            <button
+              onClick={handleCopy}
+              className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors my-2"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          )}
         </div>
       </div>
 

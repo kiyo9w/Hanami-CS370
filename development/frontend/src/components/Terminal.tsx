@@ -1,21 +1,31 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Terminal as XTerm } from 'xterm'
-import { FitAddon } from 'xterm-addon-fit'
+import dynamic from 'next/dynamic'
 import { getTerminalLogs } from '@/lib/api'
+// Import the xterm CSS directly
 import 'xterm/css/xterm.css'
 
+// Define the TerminalProps interface
 interface TerminalProps {
   logs?: string[]
   enableLiveLogs?: boolean
 }
 
-export default function Terminal({ logs = [], enableLiveLogs = false }: TerminalProps) {
+// Create a Terminal fallback for SSR
+const TerminalFallback = () => (
+  <div className="xterm bg-[#1e1e1e] p-4 rounded-lg h-[300px] flex items-center justify-center">
+    <p className="text-gray-400">Loading terminal...</p>
+  </div>
+);
+
+// Client-side Terminal implementation
+const TerminalClient = ({ logs = [], enableLiveLogs = false }: TerminalProps) => {
   const terminalRef = useRef<HTMLDivElement>(null)
-  const xtermRef = useRef<XTerm | null>(null)
-  const fitAddonRef = useRef<FitAddon | null>(null)
+  const xtermRef = useRef<any>(null)
+  const fitAddonRef = useRef<any>(null)
   const [liveLogs, setLiveLogs] = useState<string[]>([])
+  const [loaded, setLoaded] = useState(false)
 
   // Fetch logs from backend periodically if enabled
   useEffect(() => {
@@ -41,39 +51,72 @@ export default function Terminal({ logs = [], enableLiveLogs = false }: Terminal
     }
   }
 
+  // Initialize xterm.js
   useEffect(() => {
     if (!terminalRef.current) return
+    
+    // Use dynamic imports to load xterm.js modules
+    const initTerminal = async () => {
+      try {
+        // Import xterm modules dynamically
+        const { Terminal } = await import('xterm')
+        const { FitAddon } = await import('xterm-addon-fit')
+        
+        // Create terminal instance
+        const terminal = new Terminal({
+          theme: {
+            background: '#1e1e1e',
+            foreground: '#f8f8f8',
+            cursor: '#f8f8f8'
+          },
+          cursorBlink: true,
+          fontSize: 14,
+          fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+          convertEol: true,
+        })
 
-    // Initialize xterm.js
-    const terminal = new XTerm({
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#f8f8f8',
-        cursor: '#f8f8f8'
-      },
-      cursorBlink: true,
-      fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      convertEol: true,
-    })
+        const fitAddon = new FitAddon()
+        terminal.loadAddon(fitAddon)
+        
+        // Ensure the DOM element exists before opening the terminal
+        if (terminalRef.current) {
+          // Open terminal in the DOM element
+          terminal.open(terminalRef.current)
+          
+          // Add a small delay to ensure terminal is rendered
+          setTimeout(() => {
+            try {
+              fitAddon.fit()
+            } catch (e) {
+              console.warn('Failed to fit terminal', e)
+            }
+          }, 100)
 
-    const fitAddon = new FitAddon()
-    terminal.loadAddon(fitAddon)
-    terminal.open(terminalRef.current)
-    fitAddon.fit()
+          xtermRef.current = terminal
+          fitAddonRef.current = fitAddon
 
-    xtermRef.current = terminal
-    fitAddonRef.current = fitAddon
+          // Clear and write welcome message
+          terminal.clear()
+          terminal.writeln('\x1B[1;34mWelcome to Hanami Terminal\x1B[0m')
+          terminal.writeln('Run a module to see debug output here.\r\n')
+          
+          setLoaded(true)
+        }
+      } catch (error) {
+        console.error('Failed to initialize terminal:', error)
+      }
+    }
 
-    // Clear and write welcome message
-    terminal.clear()
-    terminal.writeln('\x1B[1;34mWelcome to Hanami Terminal\x1B[0m')
-    terminal.writeln('Run a module to see debug output here.\r\n')
+    initTerminal()
 
     // Handle window resize
     const handleResize = () => {
       if (fitAddonRef.current) {
-        fitAddonRef.current.fit()
+        try {
+          fitAddonRef.current.fit()
+        } catch (e) {
+          console.warn('Resize error:', e)
+        }
       }
     }
 
@@ -92,7 +135,7 @@ export default function Terminal({ logs = [], enableLiveLogs = false }: Terminal
 
   // Update terminal when logs change
   useEffect(() => {
-    if (xtermRef.current && displayLogs.length > 0) {
+    if (xtermRef.current && loaded && displayLogs.length > 0) {
       xtermRef.current.clear()
       
       displayLogs.forEach(log => {
@@ -107,7 +150,13 @@ export default function Terminal({ logs = [], enableLiveLogs = false }: Terminal
         }
       })
     }
-  }, [displayLogs])
+  }, [displayLogs, loaded])
 
   return <div ref={terminalRef} className="xterm" />
-} 
+}
+
+// Export a dynamic component with SSR disabled
+export default dynamic(() => Promise.resolve(TerminalClient), {
+  ssr: false,
+  loading: () => <TerminalFallback />
+}) 

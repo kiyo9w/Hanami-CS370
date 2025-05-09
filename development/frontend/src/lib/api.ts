@@ -593,4 +593,64 @@ export async function getTerminalLogs(): Promise<string[]> {
     console.error('Error connecting to backend for logs:', error);
     return [`Error connecting to backend for logs: ${error instanceof Error ? error.message : ''}`];
   }
+}
+
+/**
+ * Execute a specific compiler module with the given input and format
+ * @param module The module to execute ('lexer', 'parser', 'semantic', 'codegen', 'all')
+ * @param input Source code or intermediate representation (tokens, AST, IR)
+ * @param inputFormat Format of the input ('source', 'tokens', 'ast', 'ir')
+ */
+export async function executeModule(
+  module: 'lexer' | 'parser' | 'semantic' | 'codegen' | 'all',
+  input: string,
+  inputFormat: 'source' | 'tokens' | 'ast' | 'ir' = 'source'
+): Promise<string> {
+  try {
+    // Construct the endpoint URL
+    const endpoint = `${API_URL}/compiler/${module}`;
+    
+    // Prepare the request body based on the input format
+    let body: any = {};
+    
+    if (inputFormat === 'source' || module === 'lexer' || module === 'all') {
+      body.code = input;
+    } else if (inputFormat === 'tokens' && module === 'parser') {
+      body.tokens = input;
+    } else if (inputFormat === 'ast' && module === 'semantic') {
+      body.ast = input;
+    } else if (inputFormat === 'ir' && module === 'codegen') {
+      body.ir = input;
+    } else {
+      // Default to sending as code
+      body.code = input;
+    }
+    
+    // Log the request for debugging
+    console.log(`Executing ${module} with input format: ${inputFormat}`, body);
+    
+    // Send the API request
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Unknown error occurred');
+    }
+    
+    return result.output;
+  } catch (error) {
+    console.error(`Error executing ${module}:`, error);
+    throw error;
+  }
 } 

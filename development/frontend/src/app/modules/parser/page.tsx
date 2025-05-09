@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import ModuleLayout from '@/components/ModuleLayout'
-import { runParser } from '@/lib/api'
+import ModuleLayout from '@/components/ModuleLayout';
+import { executeModule } from '@/lib/api';
+import { useEditor } from '@/lib/EditorContext';
 
 // Sample tokens for the parser (from lexer output)
 const sampleTokens = `GARDEN 1 1
@@ -36,27 +37,44 @@ RIGHT_BRACE 10 1
 EOF_TOKEN 10 2`;
 
 export default function ParserPage() {
-  const [inputIsTokens, setInputIsTokens] = useState(true);
-  
-  const handleRunParser = async (input: string) => {
-    return runParser(input, inputIsTokens);
+  const [code, setCode] = useState<string>('garden Example {\n  grow main() -> int {\n    bloom << "Hello, Hanami!";\n    blossom 0;\n  }\n}');
+  const [output, setOutput] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inputFormat, setInputFormat] = useState<'source' | 'tokens'>('source');
+  const { editorValue } = useEditor();
+
+  const handleRunModule = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await executeModule('parser', editorValue, inputFormat);
+      setOutput(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
+
   return (
-    <ModuleLayout
+    <ModuleLayout 
       title="Parser"
-      description="The parser analyzes tokens from the lexer and builds an Abstract Syntax Tree (AST) representing the program's structure. You can provide either source code (which will be lexed first) or tokens directly."
-      defaultInput={sampleTokens}
-      runModule={handleRunParser}
-      outputLanguage="json"
-      outputTitle="Abstract Syntax Tree (AST)"
-      inputOptions={{
-        showToggle: true,
-        toggleLabel: "Input is tokens",
-        isToggled: inputIsTokens,
-        onToggleChange: setInputIsTokens,
-        toggleHelp: "When enabled, input is treated as tokens. When disabled, input is treated as source code and will be lexed first."
-      }}
+      description="The parser analyzes the structure of the tokens to create an Abstract Syntax Tree (AST)."
+      code={code}
+      setCode={setCode}
+      output={output}
+      isLoading={isLoading}
+      error={error}
+      onRun={handleRunModule}
+      outputTitle="Abstract Syntax Tree"
+      inputFormatOptions={[
+        { value: 'source', label: 'Source Code' },
+        { value: 'tokens', label: 'Tokens' }
+      ]}
+      inputFormat={inputFormat}
+      onInputFormatChange={setInputFormat}
     />
-  )
+  );
 } 
