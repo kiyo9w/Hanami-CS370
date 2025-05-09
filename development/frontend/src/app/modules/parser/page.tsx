@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ModuleLayout from '@/components/ModuleLayout';
 import { executeModule } from '@/lib/api';
 import { useEditor } from '@/lib/EditorContext';
@@ -37,22 +37,38 @@ RIGHT_BRACE 10 1
 EOF_TOKEN 10 2`;
 
 export default function ParserPage() {
-  const [code, setCode] = useState<string>('garden Example {\n  grow main() -> int {\n    bloom << "Hello, Hanami!";\n    blossom 0;\n  }\n}');
+  const sampleCode = 'garden Example {\n  grow main() -> int {\n    bloom << "Hello, Hanami!";\n    blossom 0;\n  }\n}';
   const [output, setOutput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [inputFormat, setInputFormat] = useState<'source' | 'tokens'>('source');
-  const { editorValue } = useEditor();
+  const { editorValue, setEditorValue } = useEditor();
+  
+  // Set initial editor content
+  useEffect(() => {
+    if (!editorValue || editorValue.trim() === '') {
+      setEditorValue(sampleCode);
+    }
+  }, [editorValue, setEditorValue]);
 
   const handleRunModule = async () => {
+    if (!editorValue) {
+      setError('No input provided.');
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     
     try {
+      console.log(`Running parser with ${inputFormat} input: ${editorValue.substring(0, 50)}...`);
       const result = await executeModule('parser', editorValue, inputFormat);
       setOutput(result);
+      console.log('Parser executed successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error('Error executing parser:', err);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -62,8 +78,8 @@ export default function ParserPage() {
     <ModuleLayout 
       title="Parser"
       description="The parser analyzes the structure of the tokens to create an Abstract Syntax Tree (AST)."
-      code={code}
-      setCode={setCode}
+      code={sampleCode}
+      setCode={setEditorValue}
       output={output}
       isLoading={isLoading}
       error={error}

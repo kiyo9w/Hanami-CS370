@@ -10,7 +10,7 @@ export default function AllModulesPage() {
   const [output, setOutput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const { editorValue } = useEditor();
+  const { editorValue, setEditorValue } = useEditor();
 
   const handleRunModule = async () => {
     setIsLoading(true);
@@ -31,7 +31,7 @@ export default function AllModulesPage() {
       title="Full Compilation Pipeline"
       description="Run the full Hanami compiler pipeline: lexer, parser, semantic analyzer, and code generator"
       code={code}
-      setCode={setCode}
+      setCode={setEditorValue}
       output={output}
       isLoading={isLoading}
       error={error}

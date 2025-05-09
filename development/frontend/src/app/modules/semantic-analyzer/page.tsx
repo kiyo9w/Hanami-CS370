@@ -65,7 +65,7 @@ export default function SemanticAnalyzerPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [inputFormat, setInputFormat] = useState<'source' | 'ast'>('source');
-  const { editorValue } = useEditor();
+  const { editorValue, setEditorValue } = useEditor();
 
   const handleRunModule = async () => {
     setIsLoading(true);
@@ -86,7 +86,7 @@ export default function SemanticAnalyzerPage() {
       title="Semantic Analyzer"
       description="The semantic analyzer checks the AST for semantic correctness, ensuring variables are declared before use, type checking, and other semantic rules."
       code={code}
-      setCode={setCode}
+      setCode={setEditorValue}
       output={output}
       isLoading={isLoading}
       error={error}

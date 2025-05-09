@@ -11,7 +11,7 @@ export default function CodegenPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [inputFormat, setInputFormat] = useState<'source' | 'ir'>('source');
-  const { editorValue } = useEditor();
+  const { editorValue, setEditorValue } = useEditor();
 
   const handleRunModule = async () => {
     setIsLoading(true);
@@ -32,7 +32,7 @@ export default function CodegenPage() {
       title="Code Generator"
       description="The code generator transforms the IR into target languages (Java, Python, C++, JavaScript)."
       code={code}
-      setCode={setCode}
+      setCode={setEditorValue}
       output={output}
       isLoading={isLoading}
       error={error}
