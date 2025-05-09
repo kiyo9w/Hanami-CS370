@@ -417,11 +417,109 @@ Result: 5
  * API client for communicating with the Hanami Compiler backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://hanami-backend-production.up.railway.app/api';
+// ALWAYS use the production URL for deployment - override local development
+const PRODUCTION_BACKEND_URL = 'https://hanami-backend-production.up.railway.app/api';
 
-// Add a console log to show the API URL being used
+// Get the API URL from environment variables or use the production URL
+const API_URL = PRODUCTION_BACKEND_URL;
+
+// Log the API URL for debugging
 console.log(`API client configured with endpoint: ${API_URL}`);
 
+// Create a direct URL for fetch calls that's guaranteed to work in the browser
+export const getApiUrl = (endpoint: string) => {
+  // In browser, we want to use relative URLs for same-origin requests
+  if (typeof window !== 'undefined') {
+    // Check if we're calling our own backend or an external one
+    const currentHost = window.location.host;
+    
+    // Parse the API URL to get its host
+    try {
+      const apiUrlObj = new URL(API_URL);
+      const apiHost = apiUrlObj.host;
+      
+      // If API is on the same host, use relative URL
+      if (currentHost === apiHost || API_URL.startsWith('/')) {
+        // Extract the path from API_URL
+        const apiPath = apiUrlObj.pathname;
+        return `${apiPath}/${endpoint.replace(/^\//, '')}`;
+      }
+    } catch (e) {
+      // If API_URL is not a valid URL, assume it's a relative path
+      if (API_URL.startsWith('/')) {
+        return `${API_URL}/${endpoint.replace(/^\//, '')}`;
+      }
+    }
+  }
+  
+  // Otherwise use the full URL
+  return `${API_URL}/${endpoint.replace(/^\//, '')}`;
+};
+
+// Track API connectivity status to enable fallback mode
+let backendConnected = true;
+let connectivityChecked = false;
+
+// Check connectivity once at startup
+async function checkBackendConnectivity() {
+  if (connectivityChecked) return backendConnected;
+  
+  try {
+    const response = await fetch(`${API_URL}/compiler/logs`, { signal: AbortSignal.timeout(2000) });
+    backendConnected = response.ok;
+    console.log(`Backend connectivity check: ${backendConnected ? 'Connected' : 'Disconnected'}`);
+  } catch (error) {
+    console.error('Backend connectivity error:', error);
+    backendConnected = false;
+  }
+  
+  connectivityChecked = true;
+  return backendConnected;
+}
+
+// If on client side, check connectivity immediately
+if (typeof window !== 'undefined') {
+  checkBackendConnectivity();
+}
+
+// Parse error messages from backend response
+function extractErrorMessage(error: any, responseData?: any): string {
+  // First, check if we have detailed error data from the response
+  if (responseData && responseData.error) {
+    const errorMsg = responseData.error;
+    
+    // Look for syntax error patterns in the error message
+    if (errorMsg.includes('syntax error') || 
+        errorMsg.includes('Parse error') || 
+        errorMsg.includes('Error at') ||
+        errorMsg.includes('Line')) {
+      return `Syntax Error: ${errorMsg}`;
+    }
+    
+    return errorMsg;
+  }
+  
+  // Check if it's a standard Error object
+  if (error instanceof Error) {
+    const message = error.message;
+    
+    // Handle common errors in a user-friendly way
+    if (message.includes('ECONNREFUSED') || message.includes('Failed to fetch')) {
+      return 'Unable to connect to compiler backend. Server might be down.';
+    }
+    
+    if (message.includes('500')) {
+      return 'Syntax error in your code. Check for missing brackets, semicolons, or other syntax issues.';
+    }
+    
+    return message;
+  }
+  
+  // Fallback for unknown error types
+  return String(error) || 'Unknown error occurred';
+}
+
+// Rest of the API client
 interface CompilerResponse {
   success: boolean;
   output: string;
@@ -430,161 +528,35 @@ interface CompilerResponse {
 }
 
 /**
- * Run the lexer module
- * @param code Source code to analyze
- */
-export async function runLexer(code: string): Promise<CompilerResponse> {
-  try {
-    const response = await fetch(`${API_URL}/compiler/lexer`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ code }),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error calling lexer API:', error);
-    return {
-      success: false,
-      output: '',
-      logs: [`Error: Unable to connect to backend server. ${error instanceof Error ? error.message : ''}`],
-      error: 'Failed to connect to server',
-    };
-  }
-}
-
-/**
- * Run the parser module
- * @param input Source code or tokens, depending on format
- * @param isTokens Whether the input is already tokens
- */
-export async function runParser(input: string, isTokens: boolean = false): Promise<CompilerResponse> {
-  try {
-    const body = isTokens 
-      ? { tokens: input } // Send as tokens if the toggle is on
-      : { code: input };  // Otherwise send as code for lexing first
-    
-    const response = await fetch(`${API_URL}/compiler/parser`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error calling parser API:', error);
-    return {
-      success: false,
-      output: '',
-      logs: [`Error: Unable to connect to backend server. ${error instanceof Error ? error.message : ''}`],
-      error: 'Failed to connect to server',
-    };
-  }
-}
-
-/**
- * Run the semantic analyzer module
- * @param input Source code or AST, depending on format
- * @param isAst Whether the input is already an AST
- */
-export async function runSemanticAnalyzer(input: string, isAst: boolean = false): Promise<CompilerResponse> {
-  try {
-    const body = isAst 
-      ? { ast: input } // Send as AST if the toggle is on
-      : { code: input }; // Otherwise send as code for lexing/parsing first
-    
-    const response = await fetch(`${API_URL}/compiler/semantic`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error calling semantic analyzer API:', error);
-    return {
-      success: false,
-      output: '',
-      logs: [`Error: Unable to connect to backend server. ${error instanceof Error ? error.message : ''}`],
-      error: 'Failed to connect to server',
-    };
-  }
-}
-
-/**
- * Run the code generator module
- * @param input Source code or IR, depending on format
- * @param isIr Whether the input is already an IR
- */
-export async function runCodeGenerator(input: string, isIr: boolean = false): Promise<CompilerResponse> {
-  try {
-    const body = isIr 
-      ? { ir: input } // Send as IR if the toggle is on
-      : { code: input }; // Otherwise send as code for full pipeline first
-    
-    const response = await fetch(`${API_URL}/compiler/codegen`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error calling code generator API:', error);
-    return {
-      success: false,
-      output: '',
-      logs: [`Error: Unable to connect to backend server. ${error instanceof Error ? error.message : ''}`],
-      error: 'Failed to connect to server',
-    };
-  }
-}
-
-/**
- * Run the full compilation pipeline
- * @param code Source code to compile
- */
-export async function runFullCompiler(code: string): Promise<CompilerResponse> {
-  try {
-    const response = await fetch(`${API_URL}/compiler/run`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ code }),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error calling full compiler API:', error);
-    return {
-      success: false,
-      output: '',
-      logs: [`Error: Unable to connect to backend server. ${error instanceof Error ? error.message : ''}`],
-      error: 'Failed to connect to server',
-    };
-  }
-}
-
-/**
  * Fetch the latest terminal logs from the server
  * @returns Promise with the logs array
  */
 export async function getTerminalLogs(): Promise<string[]> {
   try {
-    const response = await fetch(`${API_URL}/compiler/logs`);
+    // Use the full API URL directly
+    const url = `${API_URL}/compiler/logs`;
+    console.log(`Fetching logs from: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Add a timeout to prevent hanging requests
+      signal: AbortSignal.timeout(3000),
+      // Prevent caching
+      cache: 'no-store',
+    });
+    
+    if (!response.ok) {
+      console.error(`Error fetching logs: ${response.status} ${response.statusText}`);
+      return [`Error fetching logs: ${response.status} ${response.statusText}`];
+    }
+    
     const data = await response.json();
     
     if (data.success) {
-      return data.logs;
+      return data.logs || [];
     } else {
       console.error('Error fetching logs:', data.error);
       return [`Error fetching logs: ${data.error}`];
@@ -607,8 +579,18 @@ export async function executeModule(
   inputFormat: 'source' | 'tokens' | 'ast' | 'ir' = 'source'
 ): Promise<string> {
   try {
+    // Always default to source format for semantic and codegen unless explicitly specified
+    if ((module === 'semantic' || module === 'codegen') && inputFormat === 'tokens') {
+      inputFormat = 'source';
+    }
+    
+    // Always use source format for the combined 'all' module
+    if (module === 'all') {
+      inputFormat = 'source';
+    }
+    
     // Construct the endpoint URL
-    const endpoint = `${API_URL}/compiler/${module}`;
+    const endpoint = getApiUrl(`compiler/${module}`);
     
     // Prepare the request body based on the input format
     let body: any = {};
@@ -636,21 +618,64 @@ export async function executeModule(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      // Add a reasonable timeout
+      signal: AbortSignal.timeout(15000),
     });
     
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (e) {
+      responseData = null;
+    }
+    
     if (!response.ok) {
+      // Extract error details from response if possible
+      if (responseData && responseData.error) {
+        throw new Error(extractErrorMessage(null, responseData));
+      }
+      
+      // Handle common error types
+      if (response.status === 500) {
+        throw new Error('Syntax error in your code. Check for missing brackets, semicolons, or other syntax issues.');
+      }
+      
+      if (response.status === 400) {
+        throw new Error('Invalid input format or syntax error in your code.');
+      }
+      
+      if (response.status === 404) {
+        throw new Error('API endpoint not found. This module might not be implemented yet.');
+      }
+      
       throw new Error(`Server returned ${response.status}: ${response.statusText}`);
     }
     
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Unknown error occurred');
+    if (!responseData.success) {
+      throw new Error(extractErrorMessage(new Error(responseData.error || 'Unknown error'), responseData));
     }
     
-    return result.output;
+    return responseData.output;
   } catch (error) {
     console.error(`Error executing ${module}:`, error);
+    
+    // For lexer and parser, we can fall back to frontend simulation
+    if ((module === 'lexer' || module === 'parser')) {
+      console.log(`Falling back to frontend simulation for ${module}`);
+      try {
+        if (module === 'lexer') {
+          const fallbackResult = await api.runLexer(input);
+          return fallbackResult.output;
+        } else if (module === 'parser') {
+          const fallbackResult = await api.runParser(input, inputFormat !== 'source');
+          return fallbackResult.output;
+        }
+      } catch (fallbackError) {
+        console.error(`Error in frontend simulation fallback:`, fallbackError);
+      }
+    }
+    
+    // Return the extracted error message
     throw error;
   }
 } 
