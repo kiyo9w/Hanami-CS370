@@ -12,6 +12,16 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
   skipMiddlewareUrlNormalize: true,
   
+  // Redirect API calls to production backend
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://hanami-backend-production.up.railway.app/api/:path*',
+      },
+    ]
+  },
+  
   // Prevent server-side rendering for Monaco Editor
   webpack: (config, { isServer }) => {
     if (!isServer) {
