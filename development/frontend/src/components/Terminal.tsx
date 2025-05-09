@@ -1,162 +1,157 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useEffect, useState, useRef } from 'react'
 import { getTerminalLogs } from '@/lib/api'
-// Import the xterm CSS directly
-import 'xterm/css/xterm.css'
 
 // Define the TerminalProps interface
 interface TerminalProps {
   logs?: string[]
   enableLiveLogs?: boolean
+  moduleId?: string // To detect module changes
 }
 
-// Create a Terminal fallback for SSR
-const TerminalFallback = () => (
-  <div className="xterm bg-[#1e1e1e] p-4 rounded-lg h-[300px] flex items-center justify-center">
-    <p className="text-gray-400">Loading terminal...</p>
-  </div>
-);
-
-// Client-side Terminal implementation
-const TerminalClient = ({ logs = [], enableLiveLogs = false }: TerminalProps) => {
+export default function Terminal({ logs = [], enableLiveLogs = false, moduleId }: TerminalProps) {
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(logs || [])
+  const [error, setError] = useState<string | null>(null)
   const terminalRef = useRef<HTMLDivElement>(null)
-  const xtermRef = useRef<any>(null)
-  const fitAddonRef = useRef<any>(null)
-  const [liveLogs, setLiveLogs] = useState<string[]>([])
-  const [loaded, setLoaded] = useState(false)
-
-  // Fetch logs from backend periodically if enabled
+  const contentRef = useRef<HTMLDivElement>(null)
+  
+  // Clear logs when moduleId changes (user switches modules)
+  useEffect(() => {
+    setTerminalLogs([])
+    setError(null)
+  }, [moduleId])
+  
+  // Fetch logs from backend
   useEffect(() => {
     if (!enableLiveLogs) return
     
-    // Fetch logs immediately
-    fetchLogs()
+    // Initial fetch
+    fetchAndUpdateLogs()
     
-    // Then fetch every 3 seconds
-    const interval = setInterval(fetchLogs, 3000)
+    // Set up polling interval for live logs
+    const interval = setInterval(fetchAndUpdateLogs, 2000)
     
-    return () => {
-      clearInterval(interval)
-    }
+    return () => clearInterval(interval)
   }, [enableLiveLogs])
   
-  const fetchLogs = async () => {
+  // When direct logs prop changes, update them (clear previous logs first)
+  useEffect(() => {
+    if (logs && logs.length > 0) {
+      setTerminalLogs(logs)
+    }
+  }, [logs])
+  
+  // Scroll to bottom whenever logs change
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight
+    }
+  }, [terminalLogs])
+  
+  // Function to fetch logs from backend
+  const fetchAndUpdateLogs = async () => {
     try {
-      const newLogs = await getTerminalLogs()
-      setLiveLogs(newLogs)
-    } catch (error) {
-      console.error('Failed to fetch logs:', error)
+      const backendLogs = await getTerminalLogs()
+      if (backendLogs && backendLogs.length > 0) {
+        setTerminalLogs(backendLogs)
+      }
+    } catch (err) {
+      console.error('Error fetching logs:', err)
+      setError(err instanceof Error ? err.message : 'Error fetching logs')
     }
   }
-
-  // Initialize xterm.js
-  useEffect(() => {
-    if (!terminalRef.current) return
-    
-    // Use dynamic imports to load xterm.js modules
-    const initTerminal = async () => {
-      try {
-        // Import xterm modules dynamically
-        const { Terminal } = await import('xterm')
-        const { FitAddon } = await import('xterm-addon-fit')
-        
-        // Create terminal instance
-        const terminal = new Terminal({
-          theme: {
-            background: '#1e1e1e',
-            foreground: '#f8f8f8',
-            cursor: '#f8f8f8'
-          },
-          cursorBlink: true,
-          fontSize: 14,
-          fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-          convertEol: true,
-        })
-
-        const fitAddon = new FitAddon()
-        terminal.loadAddon(fitAddon)
-        
-        // Ensure the DOM element exists before opening the terminal
-        if (terminalRef.current) {
-          // Open terminal in the DOM element
-          terminal.open(terminalRef.current)
-          
-          // Add a small delay to ensure terminal is rendered
-          setTimeout(() => {
-            try {
-              fitAddon.fit()
-            } catch (e) {
-              console.warn('Failed to fit terminal', e)
-            }
-          }, 100)
-
-          xtermRef.current = terminal
-          fitAddonRef.current = fitAddon
-
-          // Clear and write welcome message
-          terminal.clear()
-          terminal.writeln('\x1B[1;34mWelcome to Hanami Terminal\x1B[0m')
-          terminal.writeln('Run a module to see debug output here.\r\n')
-          
-          setLoaded(true)
-        }
-      } catch (error) {
-        console.error('Failed to initialize terminal:', error)
-      }
+  
+  // Format log based on content
+  const formatLog = (log: string) => {
+    // Check for different types of syntax errors
+    if (log.includes('Syntax Error:') || 
+        log.includes('Parse error') || 
+        log.includes('Error at') || 
+        log.includes('[Line') ||
+        (log.includes('ERROR:') && (log.includes('missing') || log.includes('unexpected')))) {
+      return (
+        <div className="p-1 bg-red-900/30 border-l-2 border-red-500 rounded my-1">
+          <span className="text-red-500 font-bold">SYNTAX ERROR: </span>
+          <span className="text-red-400">{log.replace('ERROR: Syntax Error:', '').replace('ERROR:', '')}</span>
+        </div>
+      );
     }
-
-    initTerminal()
-
-    // Handle window resize
-    const handleResize = () => {
-      if (fitAddonRef.current) {
-        try {
-          fitAddonRef.current.fit()
-        } catch (e) {
-          console.warn('Resize error:', e)
-        }
-      }
+    else if (log.includes('ERROR:')) {
+      return <span className="text-red-500">{log}</span>
+    } else if (log.includes('SUCCESS:')) {
+      return <span className="text-green-500">{log}</span>
+    } else if (log.includes('WARNING:') || log.includes('HINT:')) {
+      return <span className="text-yellow-500">{log}</span>
+    } else if (log.includes('DEBUG:')) {
+      return <span className="text-blue-400">{log}</span>
+    } else if (log.startsWith('$') || log.startsWith('>')) {
+      // Command style
+      return (
+        <>
+          <span className="text-green-400">{log.substring(0, 1)}</span>
+          <span className="text-white">{log.substring(1)}</span>
+        </>
+      )
     }
-
-    window.addEventListener('resize', handleResize)
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (xtermRef.current) {
-        xtermRef.current.dispose()
-      }
-    }
-  }, [])
-
-  // Use either provided logs or live logs from backend
-  const displayLogs = enableLiveLogs ? liveLogs : logs
-
-  // Update terminal when logs change
-  useEffect(() => {
-    if (xtermRef.current && loaded && displayLogs.length > 0) {
-      xtermRef.current.clear()
+    return log
+  }
+  
+  return (
+    <div 
+      ref={terminalRef}
+      className="bg-black text-gray-200 rounded-lg h-[300px] overflow-hidden font-mono text-sm border border-gray-700 flex flex-col"
+      style={{ boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)', fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}
+    >
+      {/* Fixed terminal header */}
+      <div className="flex items-center p-2 border-b border-gray-800 bg-zinc-900 sticky top-0 z-10">
+        <div className="flex gap-2 mr-2">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+        </div>
+        <div className="text-center flex-grow text-gray-400 text-xs font-semibold">
+          hanami@compiler ~ terminal
+        </div>
+      </div>
       
-      displayLogs.forEach(log => {
-        if (log.startsWith('ERROR:')) {
-          xtermRef.current?.writeln(`\x1B[1;31m${log}\x1B[0m`)
-        } else if (log.startsWith('WARNING:')) {
-          xtermRef.current?.writeln(`\x1B[1;33m${log}\x1B[0m`)
-        } else if (log.startsWith('SUCCESS:')) {
-          xtermRef.current?.writeln(`\x1B[1;32m${log}\x1B[0m`)
-        } else {
-          xtermRef.current?.writeln(log)
+      {/* Scrollable content area */}
+      <div ref={contentRef} className="flex-1 overflow-auto p-3">
+        {error && (
+          <div className="text-red-500 mb-2">
+            <span className="text-red-400">Error:</span> {error}
+          </div>
+        )}
+        
+        {terminalLogs.length === 0 ? (
+          <div className="flex flex-col">
+            <span className="text-green-400">hanami@compiler:~$</span>
+            <span className="text-gray-500 mt-1">Ready. Run a module to see output.</span>
+            <span className="text-gray-500 text-xs mt-3 blink">_</span>
+          </div>
+        ) : (
+          <div>
+            <div className="text-green-400 mb-2">hanami@compiler:~$ run_module</div>
+            {terminalLogs.map((log, index) => (
+              <div key={index} className="whitespace-pre-wrap mb-1">
+                {formatLog(log)}
+              </div>
+            ))}
+            <span className="text-gray-500 text-xs blink">_</span>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .blink {
+          animation: blink-animation 1s steps(2, start) infinite;
         }
-      })
-    }
-  }, [displayLogs, loaded])
-
-  return <div ref={terminalRef} className="xterm" />
-}
-
-// Export a dynamic component with SSR disabled
-export default dynamic(() => Promise.resolve(TerminalClient), {
-  ssr: false,
-  loading: () => <TerminalFallback />
-}) 
+        @keyframes blink-animation {
+          to {
+            visibility: hidden;
+          }
+        }
+      `}</style>
+    </div>
+  )
+} 
