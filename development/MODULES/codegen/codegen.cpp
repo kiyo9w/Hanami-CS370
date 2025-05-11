@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <map>
 #include <iomanip> // For file output formatting if needed
+#include <chrono>
 
 #include "../common/token.h" // May need TokenType if IR uses it
 #include "../common/ast.h"   // Needs AST node definitions to parse IR
@@ -184,23 +185,39 @@ int main(int argc, char* argv[]) {
     inFile.close();
 
     std::cout << "Deserializing IR (AST)..." << std::endl;
+
+    //start_time
+    auto start_time = std::chrono::steady_clock::now();
+    
     std::unique_ptr<ASTNode> astRoot = nullptr;
     try {
          // Use the shared deserializer
          astRoot = fromJson(irJson); 
     } catch (const std::exception& e) {
          std::cerr << "Error during IR deserialization: " << e.what() << std::endl;
+
+        //end_time
+        auto end_time = std::chrono::steady_clock::now();
+
          return 1;
     }
     
     if (!astRoot) {
         std::cerr << "Error: Failed to deserialize IR from JSON." << std::endl;
+
+        //end_time
+        auto end_time = std::chrono::steady_clock::now();
+
         return 1;
     }
      // Expect ProgramNode as root
      ProgramNode* programRoot = dynamic_cast<ProgramNode*>(astRoot.get());
      if (!programRoot) {
           std::cerr << "Error: Deserialized IR root is not a ProgramNode." << std::endl;
+
+            //end_time
+        auto end_time = std::chrono::steady_clock::now();
+
           return 1;
      }
 
@@ -232,10 +249,24 @@ int main(int argc, char* argv[]) {
 
     if (!success) {
         std::cerr << "Code generation failed for one or more languages." << std::endl;
+
+        //end_time
+        auto end_time = std::chrono::steady_clock::now();
+        
         return 1;
     }
 
     std::cout << "Code generation completed successfully." << std::endl;
+
+    //end_time
+        auto end_time = std::chrono::steady_clock::now();
+
+    //calculation_time
+    auto duration = end_time - start_time;
+
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+    std::cout << "Time execution: " << duration_ms.count() << " ms" << std::endl;
+
 
     return 0;
 } 

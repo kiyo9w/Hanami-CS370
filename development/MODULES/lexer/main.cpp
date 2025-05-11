@@ -6,6 +6,7 @@
 #include "../common/token.h"
 #include "lexer.h" // Include Lexer class definition
 #include "../common/utils.h" // Include the header for tokenTypeToString declaration
+#include <chrono>
 
 // Helper function to escape strings for output file
 std::string escapeStringForOutput(const std::string& s) {
@@ -90,6 +91,10 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Tokenizing source code..." << std::endl;
+
+    //start_time
+    auto start_time = std::chrono::steady_clock::now();
+
     Lexer lexer(sourceCode);
     std::vector<Token> tokens;
     bool lexSuccessful = true;
@@ -98,6 +103,9 @@ int main(int argc, char* argv[]) {
         tokens = lexer.scanTokens(); // Get all tokens
     } catch (const std::exception& e) {
         std::cerr << "An unexpected error occurred during lexing: " << e.what() << std::endl;
+        // Get the time point just after execution
+        auto end_time = std::chrono::steady_clock::now();
+
         lexSuccessful = false;
         return 1;
     }
@@ -108,8 +116,12 @@ int main(int argc, char* argv[]) {
             std::cerr << "Lexing error encountered: " << token.lexeme 
                       << " at line " << token.line << ", column " << token.column << std::endl;
             lexSuccessful = false;
+            
             // Decide whether to stop or continue after first error
              // return 1; // Stop on first error
+
+             // Get the time point just after execution
+            auto end_time = std::chrono::steady_clock::now();
         }
     }
 
@@ -124,6 +136,10 @@ int main(int argc, char* argv[]) {
     std::ofstream outFile(outputFilename);
     if (!outFile) {
         std::cerr << "Error: Could not open output file: " << outputFilename << std::endl;
+
+        // Get the time point just after execution
+        auto end_time = std::chrono::steady_clock::now();
+
         return 1;
     }
 
@@ -155,8 +171,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Get the time point just after execution
+    auto end_time = std::chrono::steady_clock::now();
+
+    //get the time
+    auto duration = end_time - start_time;
+    // Correct way to print the duration in milliseconds:
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+
     outFile.close();
     std::cout << "Tokens successfully written to " << outputFilename << std::endl;
 
+    std::cout<<"Time execution: "<< duration_ms.count() <<" ms"<<'\n';
     return 0;
 }

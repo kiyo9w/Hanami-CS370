@@ -7,7 +7,7 @@
 #include <map>
 #include <iomanip> // For json pretty printing
 #include <regex>
-
+#include <chrono>
 
 #include "parser.h"
 #include "../common/token.h" // Includes Token struct and TokenType enum
@@ -208,6 +208,10 @@ int main(int argc, char* argv[]) {
      }
 
     std::cout << "Parsing token stream..." << std::endl;
+
+    //start_time
+    auto start_time = std::chrono::steady_clock::now();
+     
     Parser parser(tokens);
     std::unique_ptr<ProgramNode> astRoot = nullptr;
     bool parseErrorOccurred = false; // Flag to track if any ParseError was caught
@@ -217,16 +221,28 @@ int main(int argc, char* argv[]) {
     } catch (const ParseError& e) {
         // Parser::error already printed details
         std::cerr << "Parsing failed due to syntax errors." << std::endl;
+
+        //end time
+        auto end_time = std::chrono::steady_clock::now();
+
         parseErrorOccurred = true; // Set the flag
         // Continue to allow partial output if desired, or return here
          // return 1; // Exit after first parse error - Keep commented to allow seeing multiple errors
     } catch (const std::exception& e) {
         std::cerr << "An unexpected error occurred during parsing: " << e.what() << std::endl;
+
+        //end time
+        auto end_time = std::chrono::steady_clock::now();
+
         return 1;
     }
 
     if (!astRoot && !parseErrorOccurred) { // Check if root is null AND no parse error happened
         std::cerr << "Error: Parsing resulted in a null AST root without reporting specific parse errors." << std::endl;
+
+        //end time
+        auto end_time = std::chrono::steady_clock::now();
+
         return 1;
     }
     
@@ -241,6 +257,10 @@ int main(int argc, char* argv[]) {
         std::ofstream outFile(outputFilename);
         if (!outFile) {
             std::cerr << "Error: Could not open output AST file: " << outputFilename << std::endl;
+
+        //end time
+        auto end_time = std::chrono::steady_clock::now();
+
             return 1;
         }
     
@@ -251,9 +271,21 @@ int main(int argc, char* argv[]) {
         std::cout << "AST successfully written to " << outputFilename << std::endl;
     } else {
          std::cout << "Parsing finished with errors. AST was not generated or is incomplete." << std::endl;
+
+        //end time
+        auto end_time = std::chrono::steady_clock::now();
+
          return 1; // Indicate failure
     }
 
+    //end time
+    auto end_time = std::chrono::steady_clock::now();
+    //calculate_time
+    auto duration = end_time - start_time;
+
+
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+    std::cout << "Time execution: " << duration_ms.count() << " ms" << std::endl;
 
     return 0;
 }
