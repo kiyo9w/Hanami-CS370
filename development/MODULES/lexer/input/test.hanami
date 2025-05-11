@@ -1,52 +1,6 @@
 style <iostream>
-style <string>
-
-garden SimpleGarden
-
-species CalAveragePoint {
-hidden:
-    float averagePoint;
-    float mathScore;
-    string title;
-    float EnglishScore;
-    
-open: 
-    grow TakingPoint() -> void {
-        bloom << "Enter math point: ";
-        water >> mathScore;
-        bloom << "Enter English point: ";
-        water >> EnglishScore;
-    }
-    
-    grow CalAveragePoint() -> float {
-        averagePoint = (mathScore + EnglishScore) / 2.0;
-        blossom averagePoint;
-    }
-    
-    grow printingTitle() -> string {
-        branch (averagePoint > 9.0) {
-            title = "Excellent";
-        } 
-        else branch (averagePoint > 7.0) {
-            title = "Good";
-        } 
-        else branch (averagePoint > 5.0) {
-            title = "Average";
-        } 
-        else {
-            title = "Bad";
-        }
-        blossom title;
-    }
-};
 
 grow main() -> int {
-    CalAveragePoint student;
-    student.TakingPoint();
-    
-    float avg = student.CalAveragePoint();
-    bloom << "Student average point is " << avg << "\n";
-    bloom << "The title is " << student.printingTitle() << "\n";
-    
+    bloom << "Hello, World!";
     blossom 0;
 }

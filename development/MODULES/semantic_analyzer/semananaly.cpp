@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <map>
 #include <iomanip> // For pretty printing JSON
+#include <chrono>
 
 #include "../common/token.h" // Needs TokenType, etc.
 #include "../common/ast.h"   // Needs AST node definitions
@@ -828,6 +829,10 @@ int main(int argc, char* argv[]) {
      }
 
     std::cout << "Performing semantic analysis..." << std::endl;
+
+     //start_time
+     auto start_time = std::chrono::steady_clock::now();
+
     SemanticAnalyzerVisitor analyzer;
     analyzer.analyze(programRoot); 
 
@@ -837,6 +842,9 @@ int main(int argc, char* argv[]) {
         // Decide if we should still generate IR despite errors
         // For now, let's stop.
          std::cerr << "IR file not generated due to semantic errors." << std::endl;
+
+        //end_time
+        auto end_time = std::chrono::steady_clock::now();
          return 1; 
     } else {
          std::cout << "Semantic analysis finished successfully." << std::endl;
@@ -853,6 +861,10 @@ int main(int argc, char* argv[]) {
     std::ofstream outFile(outputFilename);
     if (!outFile) {
         std::cerr << "Error: Could not open output IR file: " << outputFilename << std::endl;
+
+        //end_time
+        auto end_time = std::chrono::steady_clock::now();
+
         return 1;
     }
 
@@ -860,6 +872,15 @@ int main(int argc, char* argv[]) {
     outFile.close();
 
     std::cout << "IR successfully written to " << outputFilename << std::endl;
+
+    //end_time
+    auto end_time = std::chrono::steady_clock::now();
+
+    //calculation
+    auto duration = end_time - start_time;
+
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+    std::cout << "Time execution: " << duration_ms.count() << " ms" << std::endl;
 
     return 0;
 }
